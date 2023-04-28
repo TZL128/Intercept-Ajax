@@ -1,13 +1,13 @@
-const pre = document.querySelector("#pre");
+const textarea = document.querySelector("#textarea");
 const button = document.querySelector("#button");
 
 const objstr = decodeURI(window.location.search.slice(1));
 let url, parmas, request;
-console.log(objstr);
+// console.log(objstr);
 if (objstr) {
   if (objstr.startsWith("{") && objstr.endsWith("}")) {
     request = false;
-    pre.textContent = JSON.stringify(JSON.parse(objstr), null, 2);
+    textarea.value = JSON.stringify(JSON.parse(objstr), null, 2);
   } else {
     request = true;
     [url, parmas = ""] = objstr.split("?");
@@ -16,12 +16,13 @@ if (objstr) {
       pre[k] = v;
       return pre;
     }, {});
-    pre.textContent = JSON.stringify(obj, null, 2);
+    textarea.value = JSON.stringify(obj, null, 2);
   }
 }
+
 button.onclick = () => {
-  if (pre.textContent) {
-    let Message = pre.textContent;
+  if (textarea.value) {
+    let Message = textarea.value;
     if (request) {
       let str = "";
       for (const [k, v] of Object.entries(JSON.parse(Message))) {
@@ -32,8 +33,8 @@ button.onclick = () => {
     chrome.runtime
       .sendMessage(Message)
       .then(() => window.close())
-      .catch(() => {
-        console.log("出错了");
+      .catch((e) => {
+        console.log("关闭失败", e);
       });
   }
 };

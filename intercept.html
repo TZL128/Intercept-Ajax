@@ -14,7 +14,7 @@
         flex-direction: column;
         align-items: center;
       }
-      #pre {
+      #textarea {
         width: 50%;
         min-width: 375px;
         padding: 15px;
@@ -22,13 +22,30 @@
         overflow-y: auto;
         white-space: pre-wrap;
         box-sizing: border-box;
-        height: calc(100vh - 100px);
+        height: calc(100vh - 70px);
         font-size: 14px;
-        font-weight: bold;
-        font-family: "Courier New", Courier, monospace;
+        /* font-weight: bold; */
+        font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
+          "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
+        resize: none;
       }
+      #textarea:focus {
+        outline-color: #f0f9eb;
+        caret-color: #1296db;
+      }
+
+      #textarea::-webkit-scrollbar {
+        width: 5px;
+      }
+      #textarea::-webkit-scrollbar-thumb {
+        background: #1296db;
+        border-radius: 5px;
+      }
+      /* #textarea::-webkit-scrollbar-thumb:hover {
+        background: #1296db;
+      } */
       #button {
-        width: 200px;
+        width: 300px;
         box-sizing: border-box;
         padding: 12px 6px;
         background-color: #1296db;
@@ -38,19 +55,20 @@
         border-radius: 5px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
         user-select: none;
-        margin-top: 15px;
+        margin: 15px 0px;
       }
       #button:active {
         opacity: 0.8;
       }
-      [contenteditable]:focus {
+      /* [contenteditable]:focus {
         outline-color: #1296db;
-      }
+      } */
     </style>
   </head>
   <body>
     <div class="container">
-      <pre id="pre" contenteditable></pre>
+      <!-- <pre id="pre" contenteditable></pre> -->
+      <textarea id="textarea"></textarea>
       <div id="button">提交</div>
     </div>
     <script src="./intercept.js"></script>
