@@ -5,6 +5,17 @@ const openUrl = chrome.runtime.getURL("intercept.html");
 let Tab = null;
 
 const interceptFunc = (openUrl) => {
+  const openTab = (url) => {
+    // let a = document.createElement("a");
+    // a.setAttribute("href", url);
+    // a.setAttribute("target", "_blank");
+    // document.body.appendChild(a);
+    // a.click();
+    // a.remove();
+    const tab = window.open();
+    tab.location.href = url;
+  };
+
   class HttpRequest extends window.XMLHttpRequest {
     constructor() {
       super(...arguments);
@@ -28,8 +39,9 @@ const interceptFunc = (openUrl) => {
       });
       super.onreadystatechange = () => {
         if (this.readyState === 4 && this.status === 200) {
-          window.open(`${openUrl}?${super.responseText}`);
-          window.alert("编辑响应值完毕，请点击确定");
+          openTab(`${openUrl}?${super.responseText}`);
+          // window.alert("编辑响应值完毕，请点击确定");
+          debugger;
           setTimeout(() => {
             this.responseText =
               window.InterceptAjaxResponseText || super.responseText;
@@ -54,8 +66,9 @@ const interceptFunc = (openUrl) => {
         for (const [k, v] of Object.entries(JSON.parse(params))) {
           str += `${k}=${v}&`;
         }
-        window.open(`${openUrl}?${this._url}${str}`);
-        window.alert("编辑请求参数完毕，请点击确定");
+        openTab(`${openUrl}?${this._url}${str}`);
+        // window.alert("编辑请求参数完毕，请点击确定");
+        debugger;
         setTimeout(() => {
           if (window.InterceptAjaxResponseText) {
             const [, paramstr] = window.InterceptAjaxResponseText.split("?");
@@ -87,8 +100,9 @@ const interceptFunc = (openUrl) => {
 
     open(method, url, async) {
       if (["GET", "HEAD"].includes(method.toLocaleUpperCase())) {
-        window.open(`${openUrl}?${url}`);
-        window.alert("编辑请求参数完毕，请点击确定");
+        openTab(`${openUrl}?${url}`);
+        // window.alert("编辑请求参数完毕，请点击确定");
+        debugger;
         setTimeout(() => {
           super.open(
             method,
