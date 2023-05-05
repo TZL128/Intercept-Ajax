@@ -6,12 +6,6 @@ let Tab = null;
 
 const interceptFunc = (openUrl) => {
   const openTab = (url) => {
-    // let a = document.createElement("a");
-    // a.setAttribute("href", url);
-    // a.setAttribute("target", "_blank");
-    // document.body.appendChild(a);
-    // a.click();
-    // a.remove();
     const tab = window.open();
     tab.location.href = url;
   };
@@ -40,13 +34,14 @@ const interceptFunc = (openUrl) => {
       super.onreadystatechange = () => {
         if (this.readyState === 4 && this.status === 200) {
           openTab(`${openUrl}?${super.responseText}`);
-          // window.alert("编辑响应值完毕，请点击确定");
-          debugger;
-          setTimeout(() => {
-            this.responseText =
-              window.InterceptAjaxResponseText || super.responseText;
-            fn && fn();
-          }, 10);
+          const t = setInterval(() => {
+            if (window.InterceptAjaxResponseText) {
+              this.responseText = window.InterceptAjaxResponseText;
+              fn && fn();
+              window.InterceptAjaxResponseText = "";
+              clearInterval(t);
+            }
+          }, 250);
         }
       };
     }
@@ -67,9 +62,7 @@ const interceptFunc = (openUrl) => {
           str += `${k}=${v}&`;
         }
         openTab(`${openUrl}?${this._url}${str}`);
-        // window.alert("编辑请求参数完毕，请点击确定");
-        debugger;
-        setTimeout(() => {
+        const t = setInterval(() => {
           if (window.InterceptAjaxResponseText) {
             const [, paramstr] = window.InterceptAjaxResponseText.split("?");
             let obj = paramstr
@@ -81,10 +74,10 @@ const interceptFunc = (openUrl) => {
                 return pre;
               }, {});
             super.send(JSON.stringify(obj));
-          } else {
-            super.send(params);
+            window.InterceptAjaxResponseText = "";
+            clearInterval(t);
           }
-        }, 10);
+        }, 250);
       } else {
         const fn = () => {
           super.send(params);
@@ -94,31 +87,26 @@ const interceptFunc = (openUrl) => {
       }
       this._flag = false;
       this._url = "";
-
-      // return super.send(params);
     }
 
     open(method, url, async) {
       if (["GET", "HEAD"].includes(method.toLocaleUpperCase())) {
         openTab(`${openUrl}?${url}`);
-        // window.alert("编辑请求参数完毕，请点击确定");
-        debugger;
-        setTimeout(() => {
-          super.open(
-            method,
-            `${window.InterceptAjaxResponseText || url}`,
-            async
-          );
-          window.dispatchEvent(new CustomEvent("setHeader-intercept"));
-          window.dispatchEvent(new CustomEvent("request-intercept"));
-        }, 10);
+        const t = setInterval(() => {
+          if (window.InterceptAjaxResponseText) {
+            super.open(method, `${window.InterceptAjaxResponseText}`, async);
+            window.dispatchEvent(new CustomEvent("setHeader-intercept"));
+            window.dispatchEvent(new CustomEvent("request-intercept"));
+            window.InterceptAjaxResponseText = "";
+            clearInterval(t);
+          }
+        }, 250);
       }
       if (["POST", "PUT"].includes(method.toLocaleUpperCase())) {
         this._flag = true;
         this._url = url;
         super.open(method, url, async);
       }
-      // return super.open(method, url, async);
     }
   }
   window.OriginXMLHttpRequest = window.XMLHttpRequest;
