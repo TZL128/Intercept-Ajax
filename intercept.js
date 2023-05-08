@@ -1,5 +1,6 @@
 const textarea = document.querySelector("#textarea");
 const button = document.querySelector("#button");
+const tip = document.querySelector(".tip");
 
 const objstr = decodeURI(window.location.search.slice(1));
 let url, parmas, request;
@@ -21,20 +22,30 @@ if (objstr) {
 }
 
 button.onclick = () => {
-  if (textarea.value) {
-    let Message = textarea.value;
-    if (request) {
-      let str = "";
-      for (const [k, v] of Object.entries(JSON.parse(Message))) {
-        str += `${k}=${v}&`;
+  try {
+    if (textarea.value) {
+      let Message = textarea.value;
+      if (request) {
+        let str = "";
+        for (const [k, v] of Object.entries(JSON.parse(Message))) {
+          str += `${k}=${v}&`;
+        }
+        Message = `${url}?${str}`;
       }
-      Message = `${url}?${str}`;
+      chrome.runtime
+        .sendMessage(Message)
+        .then(() => window.close())
+        .catch((e) => {
+          console.log("关闭失败", e);
+        });
     }
-    chrome.runtime
-      .sendMessage(Message)
-      .then(() => window.close())
-      .catch((e) => {
-        console.log("关闭失败", e);
-      });
+  } catch (error) {
+    textarea.classList.add("shake");
+    const originTip = tip.textContent;
+    tip.textContent = "输入格式为JSON";
+    setTimeout(() => {
+      textarea.classList.remove("shake");
+      tip.textContent = originTip;
+    }, 800);
   }
 };
