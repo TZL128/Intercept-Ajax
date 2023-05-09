@@ -41,9 +41,14 @@ button.onclick = () => {
         });
     }
   } catch (error) {
+    if (/position\s\d+$/.test(error.message) && textarea.setSelectionRange) {
+      const position = error.message.replace(/[^0-9]/g, "");
+      textarea.focus();
+      textarea.setSelectionRange(-1, position);
+    }
     textarea.classList.add("shake");
     const originTip = tip.textContent;
-    tip.textContent = "输入格式为JSON";
+    tip.textContent = error.message;
     setTimeout(() => {
       textarea.classList.remove("shake");
       tip.textContent = originTip;

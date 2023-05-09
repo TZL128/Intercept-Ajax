@@ -142,16 +142,22 @@ chrome.action.onClicked.addListener(async (tab) => {
   !Tab && (Tab = tab);
   const prevState = await chrome.action.getBadgeText({ tabId: tab.id });
   const nextState = prevState === "ON" ? "OFF" : "ON";
-  await chrome.action.setBadgeText({
-    tabId: tab.id,
-    text: nextState,
-  });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: funMap[nextState],
-    args: [openUrl],
-    world: "MAIN",
-  });
+  chrome.scripting
+    .executeScript({
+      target: { tabId: tab.id },
+      func: funMap[nextState],
+      args: [openUrl],
+      world: "MAIN",
+    })
+    .then(() => {
+      chrome.action.setBadgeText({
+        tabId: tab.id,
+        text: nextState,
+      });
+    })
+    .catch((e) => {
+      console.log(e);
+    });
 });
 
 chrome.runtime.onMessage.addListener((message) => {

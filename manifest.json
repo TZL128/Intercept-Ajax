@@ -31,6 +31,6 @@
   },
   "web_accessible_resources": [{
     "resources": ["intercept.html","intercept.js"],
-    "matches": ["<all_urls>"]
+    "matches": ["http://*/*","https://*/*"]
     }]
 }
