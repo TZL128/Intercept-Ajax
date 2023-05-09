@@ -32,7 +32,7 @@ const interceptFunc = (openUrl) => {
         },
       });
       super.onreadystatechange = () => {
-        if (this.readyState === 4 && this.status === 200) {
+        if (this.readyState === 4) {
           openTab(`${openUrl}?${super.responseText}`);
           const t = setInterval(() => {
             if (window.InterceptAjaxResponseText) {

@@ -25,9 +25,10 @@ button.onclick = () => {
   try {
     if (textarea.value) {
       let Message = textarea.value;
+      const MessageObj = JSON.parse(Message);
       if (request) {
         let str = "";
-        for (const [k, v] of Object.entries(JSON.parse(Message))) {
+        for (const [k, v] of Object.entries(MessageObj)) {
           str += `${k}=${v}&`;
         }
         Message = `${url}?${str}`;
