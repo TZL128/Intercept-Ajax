@@ -2,7 +2,6 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.action.setBadgeText({ text: "OFF" });
 });
 const openUrl = chrome.runtime.getURL("intercept.html");
-let Tab = null;
 
 const interceptFunc = (openUrl) => {
   const openTab = (url) => {
@@ -13,9 +12,8 @@ const interceptFunc = (openUrl) => {
   class HttpRequest extends window.XMLHttpRequest {
     constructor() {
       super(...arguments);
-      this.onreadystatechange = null;
       let responseText = "";
-      this._flag = false;
+      this._flag = false; //区分get post
       this._url = "";
       Object.defineProperty(this, "responseText", {
         get() {
@@ -25,20 +23,41 @@ const interceptFunc = (openUrl) => {
           responseText = v;
         },
       });
-      let fn = this.onreadystatechange;
-      Object.defineProperty(this, "onreadystatechange", {
+      let loadendFn = null,
+        readystatechangeFn = null;
+      Object.defineProperty(this, "onloadend", {
         set(v) {
-          fn = v;
+          loadendFn = v;
         },
       });
-      super.onreadystatechange = () => {
-        if (this.readyState === 4 && this.status === 200) {
+      Object.defineProperty(this, "onreadystatechange", {
+        set(v) {
+          readystatechangeFn = v;
+        },
+      });
+      super.onloadend = () => {
+        if (loadendFn) {
           openTab(`${openUrl}?${super.responseText}`);
           const t = setInterval(() => {
             if (window.InterceptAjaxResponseText) {
               this.responseText = window.InterceptAjaxResponseText;
-              fn && fn();
+              loadendFn();
               window.InterceptAjaxResponseText = "";
+              loadendFn = null;
+              clearInterval(t);
+            }
+          }, 250);
+        }
+      };
+      super.onreadystatechange = () => {
+        if (readystatechangeFn && this.readyState === 4) {
+          openTab(`${openUrl}?${super.responseText}`);
+          const t = setInterval(() => {
+            if (window.InterceptAjaxResponseText) {
+              this.responseText = window.InterceptAjaxResponseText;
+              readystatechangeFn();
+              window.InterceptAjaxResponseText = "";
+              readystatechangeFn = null;
               clearInterval(t);
             }
           }, 250);
@@ -139,7 +158,6 @@ const funMap = {
 };
 
 chrome.action.onClicked.addListener(async (tab) => {
-  !Tab && (Tab = tab);
   const prevState = await chrome.action.getBadgeText({ tabId: tab.id });
   const nextState = prevState === "ON" ? "OFF" : "ON";
   await chrome.action.setBadgeText({
@@ -155,20 +173,28 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  chrome.scripting.executeScript({
-    target: { tabId: Tab.id },
-    func: (message) => {
-      if (message.startsWith("{") && message.endsWith("}")) {
-        window.InterceptAjaxResponseText = JSON.stringify(
-          JSON.parse(message),
-          null,
-          2
-        );
-        return;
-      }
-      window.InterceptAjaxResponseText = message;
+  chrome.tabs.query(
+    {
+      currentWindow: true,
     },
-    args: [message],
-    world: "MAIN",
-  });
+    (tabs) => {
+      const [target] = tabs.filter((t) => t.active);
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[target.index - 1].id }, //找到之前发请求的tab
+        func: (message) => {
+          if (message.startsWith("{") && message.endsWith("}")) {
+            window.InterceptAjaxResponseText = JSON.stringify(
+              JSON.parse(message),
+              null,
+              2
+            );
+            return;
+          }
+          window.InterceptAjaxResponseText = message;
+        },
+        args: [message],
+        world: "MAIN",
+      });
+    }
+  );
 });
