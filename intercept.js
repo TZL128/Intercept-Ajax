@@ -2,7 +2,7 @@ const textarea = document.querySelector("#textarea");
 const button = document.querySelector("#button");
 const tip = document.querySelector(".tip");
 
-const objstr = decodeURI(window.location.search.slice(1));
+const objstr = decodeURIComponent(window.location.search.slice(1)).trim();
 let url, parmas, request;
 // console.log(objstr);
 if (objstr) {
