@@ -4,6 +4,18 @@
 安装后建议置顶插件;ctrl+z 控制开启或者关闭拦截;也可以点击图标。
 
 拦截到请求后会新打开一个页面，请在页面中编辑好数据后点击提交（第一次弹出页面是请求数据，第二次是响应的数据）
+![image](https://github.com/TZL128/Intercept-Ajax/assets/52518549/f06c6470-9b5b-4550-91a1-0bdc96433f7d)  
+
+请求拦截  
+
+![image](https://github.com/TZL128/Intercept-Ajax/assets/52518549/a0bfe744-4303-402c-96f8-2b3955390ed6)  
+
+响应拦截  
+
+![image](https://github.com/TZL128/Intercept-Ajax/assets/52518549/e7fe5f6b-411f-40ff-8966-7434478cd305)
+
+
+
 
 ### 思路
 
