@@ -4,130 +4,164 @@ chrome.runtime.onInstalled.addListener(() => {
 const openUrl = chrome.runtime.getURL("intercept.html");
 
 const interceptFunc = (openUrl) => {
+  const requestTask = Symbol.for("requestTask");
+  window[requestTask] = [];
+
+  const dispatchTask = () => {
+    if (!window[requestTask].length || dispatchTask.flag) return;
+    dispatchTask.flag = true;
+    Promise.resolve().then(() => {
+      const task = window[requestTask].shift();
+      HttpRequest.interceptors.request(task);
+      let [method, url] = task.open_params;
+      method = method.toLocaleUpperCase();
+
+      if (["GET"].includes(method)) {
+        handleGet(url, task);
+      }
+      if (["POST"].includes(method)) {
+        handlePost(url, task);
+      }
+      // dispatchTask.flag = false;
+    });
+  };
+
+  const handleGet = (url, task) => {
+    openTab(`${openUrl}?${url}`);
+  };
+
+  const handlePost = (url, task) => {
+    let str = "?";
+    for (const [k, v] of Object.entries(JSON.parse(task.send_params))) {
+      str += `${k}=${v}&`;
+    }
+    openTab(`${openUrl}?${url}${str}`);
+  };
+
   const openTab = (url) => {
     const tab = window.open();
     tab.location.href = url;
   };
-
   class HttpRequest extends window.XMLHttpRequest {
     constructor() {
       super(...arguments);
-      let responseText = "";
-      this._flag = false; //区分get post
-      this._url = "";
-      Object.defineProperty(this, "responseText", {
-        get() {
-          return responseText;
-        },
-        set(v) {
-          responseText = v;
-        },
-      });
-      let loadendFn = null,
-        readystatechangeFn = null;
-      Object.defineProperty(this, "onloadend", {
-        set(v) {
-          loadendFn = v;
-        },
-      });
+      this.init();
+    }
+    init() {
+      this.requestInfo = {
+        id: new Date().getTime(),
+      };
+      window[requestTask].push(this.requestInfo);
+      /**
+       * 为了拿到实际上onreadystatechange回调
+       * 不写get 是让它调用父类的onreadystatechange
+       * 在再父类中调用
+       */
+      let readystatechangefn = null;
       Object.defineProperty(this, "onreadystatechange", {
         set(v) {
-          readystatechangeFn = v;
+          readystatechangefn = v;
+        },
+      });
+      super.onreadystatechange = () => {
+        if (readystatechangefn && this.readyState === 4) {
+          HttpRequest.interceptors.response((responseText) => {
+            this.responseText = responseText;
+            readystatechangefn();
+            this.onreadystatechange = null;
+            dispatchTask.flag = false;
+            dispatchTask();
+          });
+          openTab(`${openUrl}?${super.responseText}`);
+        }
+      };
+
+      let loadendfn = null;
+      Object.defineProperty(this, "onloadend", {
+        set(v) {
+          loadendfn = v;
         },
       });
       super.onloadend = () => {
-        if (loadendFn) {
+        if (loadendfn) {
+          HttpRequest.interceptors.response((responseText) => {
+            this.responseText = responseText;
+            loadendfn();
+            this.onloadend = null;
+            dispatchTask.flag = false;
+            dispatchTask();
+          });
           openTab(`${openUrl}?${super.responseText}`);
-          const t = setInterval(() => {
-            if (window.InterceptAjaxResponseText) {
-              this.responseText = window.InterceptAjaxResponseText;
-              loadendFn();
-              window.InterceptAjaxResponseText = "";
-              loadendFn = null;
-              clearInterval(t);
-            }
-          }, 250);
         }
       };
-      super.onreadystatechange = () => {
-        if (readystatechangeFn && this.readyState === 4) {
-          openTab(`${openUrl}?${super.responseText}`);
-          const t = setInterval(() => {
-            if (window.InterceptAjaxResponseText) {
-              this.responseText = window.InterceptAjaxResponseText;
-              readystatechangeFn();
-              window.InterceptAjaxResponseText = "";
-              readystatechangeFn = null;
-              clearInterval(t);
-            }
-          }, 250);
-        }
-      };
-    }
-    setRequestHeader(...header) {
-      if (this._flag) {
-        return super.setRequestHeader(...header);
-      }
-      const fn = () => {
-        super.setRequestHeader(...header);
-        window.removeEventListener("setHeader-intercept", fn);
-      };
-      window.addEventListener("setHeader-intercept", fn);
-    }
-    send(params) {
-      if (this._flag) {
-        let str = "?";
-        for (const [k, v] of Object.entries(JSON.parse(params))) {
-          str += `${k}=${v}&`;
-        }
-        openTab(`${openUrl}?${this._url}${str}`);
-        const t = setInterval(() => {
-          if (window.InterceptAjaxResponseText) {
-            const [, paramstr] = window.InterceptAjaxResponseText.split("?");
-            let obj = paramstr
-              .slice(0, -1)
-              .split("&")
-              .reduce((pre, cur) => {
-                const [k, v] = cur.split("=");
-                pre[k] = v;
-                return pre;
-              }, {});
-            super.send(JSON.stringify(obj));
-            window.InterceptAjaxResponseText = "";
-            clearInterval(t);
-          }
-        }, 250);
-      } else {
-        const fn = () => {
-          super.send(params);
-          window.removeEventListener("request-intercept", fn);
-        };
-        window.addEventListener("request-intercept", fn);
-      }
-      this._flag = false;
-      this._url = "";
-    }
 
+      //Cannot set property responseText of #<XMLHttpRequest> which has only a getter
+      let responseText = "";
+      Object.defineProperty(this, "responseText", {
+        set(v) {
+          responseText = v;
+        },
+        get() {
+          return responseText;
+        },
+      });
+    }
     open(method, url, async) {
-      if (["GET", "HEAD"].includes(method.toLocaleUpperCase())) {
-        openTab(`${openUrl}?${url}`);
-        const t = setInterval(() => {
-          if (window.InterceptAjaxResponseText) {
-            super.open(method, `${window.InterceptAjaxResponseText}`, async);
-            window.dispatchEvent(new CustomEvent("setHeader-intercept"));
-            window.dispatchEvent(new CustomEvent("request-intercept"));
-            window.InterceptAjaxResponseText = "";
-            clearInterval(t);
-          }
-        }, 250);
-      }
-      if (["POST", "PUT"].includes(method.toLocaleUpperCase())) {
-        this._flag = true;
-        this._url = url;
+      this.requestInfo.open = (method, url, async) =>
         super.open(method, url, async);
-      }
+      this.requestInfo.open_params = [method, url, async];
+    }
+    setRequestHeader(key, value) {
+      !this.requestInfo.setRequestHeader &&
+        (this.requestInfo.setRequestHeader = (key, value) =>
+          super.setRequestHeader(key, value));
+      this.requestInfo.setRequestHeader_params = Array.isArray(
+        this.requestInfo.setRequestHeader_params
+      )
+        ? [...this.requestInfo.setRequestHeader_params, [key, value]]
+        : [[key, value]];
+    }
+    send(jsonStr) {
+      this.requestInfo.send = (jsonStr) => super.send(jsonStr);
+      this.requestInfo.send_params = jsonStr;
+      dispatchTask();
     }
   }
+  HttpRequest.interceptors = {};
+
+  HttpRequest.interceptors.request = (task) => {
+    const fn = (e) => {
+      window.removeEventListener("request_intercept", fn);
+      const { isGet, content } = e.detail;
+      const [method, url, async] = task.open_params;
+      task.open(method, isGet ? content : url, async);
+      task.setRequestHeader_params.forEach(([key, value]) => {
+        task.setRequestHeader(key, value);
+      });
+      if (!isGet) {
+        const [, jsonStr] = content.split("?");
+        let obj = jsonStr
+          .slice(0, -1)
+          .split("&")
+          .reduce((pre, cur) => {
+            const [k, v] = cur.split("=");
+            pre[k] = v;
+            return pre;
+          }, {});
+        task.send_params = JSON.stringify(obj);
+      }
+      task.send(task.send_params);
+    };
+    window.addEventListener("request_intercept", fn);
+  };
+  HttpRequest.interceptors.response = (cb = () => {}) => {
+    const fn = (e) => {
+      window.removeEventListener("response_intercept", fn);
+      cb(e.detail);
+    };
+    window.addEventListener("response_intercept", fn);
+  };
+
   window.OriginXMLHttpRequest = window.XMLHttpRequest;
   window.XMLHttpRequest = HttpRequest;
   console.log(
@@ -140,9 +174,9 @@ const interceptFunc = (openUrl) => {
   );
 };
 const originFunc = () => {
+  window[Symbol.for("requestTask")] = [];
   window.XMLHttpRequest = window.OriginXMLHttpRequest;
   delete window.OriginXMLHttpRequest;
-  delete window.InterceptAjaxResponseText;
   console.log(
     "%c插件关闭拦截",
     `background-color:red;
@@ -188,15 +222,19 @@ chrome.runtime.onMessage.addListener((message) => {
       chrome.scripting.executeScript({
         target: { tabId: tabs[target.index - 1].id }, //找到之前发请求的tab
         func: (message) => {
-          if (message.startsWith("{") && message.endsWith("}")) {
-            window.InterceptAjaxResponseText = JSON.stringify(
-              JSON.parse(message),
-              null,
-              2
+          const [isReq, content] = message.split("@_@");
+          if (isReq === "true") {
+            window.dispatchEvent(
+              new CustomEvent("request_intercept", {
+                detail: { content, isGet: true },
+              })
             );
-            return;
           }
-          window.InterceptAjaxResponseText = message;
+          if (isReq === "false") {
+            window.dispatchEvent(
+              new CustomEvent("response_intercept", { detail: content })
+            );
+          }
         },
         args: [message],
         world: "MAIN",

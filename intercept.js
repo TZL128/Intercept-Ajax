@@ -17,6 +17,7 @@ if (objstr) {
       pre[k] = v;
       return pre;
     }, {});
+    tip.textContent = `url：${url}`;
     textarea.value = JSON.stringify(obj, null, 2);
   }
 }
@@ -34,7 +35,7 @@ button.onclick = () => {
         Message = `${url}?${str}`;
       }
       chrome.runtime
-        .sendMessage(Message)
+        .sendMessage(`${request}@_@${Message}`)
         .then(() => window.close())
         .catch((e) => {
           console.log("关闭失败", e);
