@@ -32,7 +32,7 @@ const interceptFunc = (openUrl) => {
 
   const handlePost = (url, task) => {
     let str = "?";
-    for (const [k, v] of Object.entries(JSON.parse(task.send_params))) {
+    for (const [k, v] of Object.entries(JSON.parse(task.send_params || "{}"))) {
       str += `${k}=${v}&`;
     }
     openTab(`${openUrl}?${url}${str}`);
