@@ -77,38 +77,11 @@ const interceptFunc = (openUrl) => {
       });
       super.onreadystatechange = () => {
         if (readystatechangefn && this.readyState === 4) {
-          if (dispatchTask.isRelease) {
-            this.responseText = super.responseText;
+          this.handleTaskEnd(() => {
             readystatechangefn();
             this.onreadystatechange = null;
-            window.postMessage(
-              {
-                name: "task",
-                task: {
-                  id: this.requestInfo.id,
-                  clear: true,
-                },
-              },
-              "*"
-            );
-            return;
-          }
-          HttpRequest.interceptors.response((responseText) => {
-            this.responseText = responseText;
-            readystatechangefn();
-            this.onreadystatechange = null;
-            window.postMessage(
-              {
-                name: "task",
-                task: {
-                  id: this.requestInfo.id,
-                  clear: true,
-                },
-              },
-              "*"
-            );
+            this.taskNotice(true);
           });
-          openTab(`${openUrl}?${super.responseText}`);
         }
       };
 
@@ -120,12 +93,11 @@ const interceptFunc = (openUrl) => {
       });
       super.onloadend = () => {
         if (loadendfn) {
-          HttpRequest.interceptors.response((responseText) => {
-            this.responseText = responseText;
+          this.handleTaskEnd(() => {
             loadendfn();
             this.onloadend = null;
+            this.taskNotice(true);
           });
-          openTab(`${openUrl}?${super.responseText}`);
         }
       };
 
@@ -139,6 +111,33 @@ const interceptFunc = (openUrl) => {
           return responseText;
         },
       });
+    }
+    handleTaskEnd(realFn) {
+      if (dispatchTask.isRelease) {
+        this.responseText = super.responseText;
+        realFn();
+        return;
+      }
+      HttpRequest.interceptors.response((responseText) => {
+        this.responseText = responseText;
+        realFn();
+      });
+      openTab(`${openUrl}?${super.responseText}`);
+    }
+    taskNotice(clear) {
+      const [method, url] = this.requestInfo.open_params;
+      window.postMessage(
+        {
+          name: "task",
+          task: {
+            id: this.requestInfo.id,
+            method,
+            url: url.split("?")[0],
+            clear,
+          },
+        },
+        "*"
+      );
     }
     open(method, url, async) {
       this.requestInfo.open = (method, url, async) =>
@@ -158,17 +157,7 @@ const interceptFunc = (openUrl) => {
     send(jsonStr) {
       this.requestInfo.send = (jsonStr) => super.send(jsonStr);
       this.requestInfo.send_params = jsonStr;
-      window.postMessage(
-        {
-          name: "task",
-          task: {
-            id: this.requestInfo.id,
-            method: this.requestInfo.open_params[0],
-            url: this.requestInfo.open_params[1].split("?")[0],
-          },
-        },
-        "*"
-      );
+      this.taskNotice();
     }
   }
   HttpRequest.interceptors = {};
@@ -254,11 +243,6 @@ chrome.action.onClicked.addListener(async (tab) => {
         tabId: tab.id,
         text: nextState,
       });
-      nextState === "OFF" &&
-        PORT &&
-        PORT.postMessage({
-          close: true,
-        });
     })
     .catch((e) => {
       console.log(e);
@@ -304,27 +288,15 @@ chrome.runtime.onMessage.addListener((message) => {
 let PORT = null; //连接dev pannel
 chrome.runtime.onConnect.addListener(function (port) {
   PORT = port;
-  const extensionListener = function (message, sender, sendResponse) {
-    if (message.name === "interceptors") {
-      chrome.scripting.executeScript({
-        target: { tabId: message.tabId },
-        func: (taskId) => {
-          dispatchTask(false, taskId);
-        },
-        world: "MAIN",
-        args: [message.taskId],
-      });
-    }
-    if (message.name === "release") {
-      chrome.scripting.executeScript({
-        target: { tabId: message.tabId },
-        func: (taskId) => {
-          dispatchTask(true, taskId);
-        },
-        world: "MAIN",
-        args: [message.taskId],
-      });
-    }
+  const extensionListener = function (message) {
+    chrome.scripting.executeScript({
+      target: { tabId: message.tabId },
+      func: (isRelease, taskId) => {
+        dispatchTask(isRelease, taskId);
+      },
+      world: "MAIN",
+      args: [message.name === "release", message.taskId],
+    });
   };
   port.onMessage.addListener(extensionListener);
   port.onDisconnect.addListener(function (port) {

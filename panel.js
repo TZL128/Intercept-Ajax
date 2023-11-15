@@ -4,11 +4,6 @@ chrome.devtools.panels.create(
   "panel.html",
   function (panel) {
     const render = (message) => {
-      const container = document.querySelector("#container");
-      if (message.close) {
-        container.innerHTML = "";
-        return;
-      }
       if (message.clear) {
         const taskList = document.querySelectorAll("#container .item");
         const target = Array.from(taskList).find((task) => {
@@ -17,6 +12,7 @@ chrome.devtools.panels.create(
         target.style.display = "none";
         return;
       }
+      const container = document.querySelector("#container");
       const task = document.createElement("div");
       const method = document.createElement("div");
       const url = document.createElement("div");
