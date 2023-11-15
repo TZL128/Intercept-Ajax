@@ -11,7 +11,7 @@
       "128": "images/icon-128.png"
     }
   },
-  "icons":{
+  "icons": {
     "16": "images/icon-16.png",
     "32": "images/icon-32.png",
     "48": "images/icon-48.png",
@@ -20,7 +20,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["scripting", "activeTab","tabs"],
+  "permissions": ["scripting", "activeTab", "tabs"],
   "commands": {
     "_execute_action": {
       "suggested_key": {
@@ -29,8 +29,17 @@
       }
     }
   },
-  "web_accessible_resources": [{
-    "resources": ["intercept.html","intercept.js"],
-    "matches": ["http://*/*","https://*/*"]
-    }]
+  "content_scripts": [
+    {
+      "js":["content.js"],
+      "matches":["<all_urls>"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["intercept.html", "intercept.js"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "devtools_page": "panel.html"
 }

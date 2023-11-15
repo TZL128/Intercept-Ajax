@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src *; connect-src * ws://* wss://*; style-src * 'unsafe-inline' 'unsafe-eval'; media-src * ; img-src * data:; font-src * ; script-src * 'unsafe-inline' 'unsafe-eval';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      #container .item {
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        font-weight: bold;
+      }
+
+      #container .item .method {
+        flex-basis: 50px;
+        padding: 10px;
+        margin-right: 10px;
+        text-align: center;
+      }
+      #container .item .url {
+        flex: 1;
+      }
+      #container .item .interceptors,
+      #container .item .release {
+        flex-basis: 50px;
+        cursor: pointer;
+      }
+
+      #container .item .interceptors:hover,
+      #container .item .release:hover {
+        color: blueviolet;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <!-- <div class="item">
+        <div class="method">方法</div>
+        <div class="url">url</div>
+        <div class="interceptors">拦截</div>
+        <div class="release">放行</div>
+      </div> -->
+    </div>
+    <script src="./panel.js"></script>
+  </body>
+</html>

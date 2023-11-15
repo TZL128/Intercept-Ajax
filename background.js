@@ -7,23 +7,34 @@ const interceptFunc = (openUrl) => {
   const requestTask = Symbol.for("requestTask");
   window[requestTask] = [];
 
-  const dispatchTask = () => {
-    if (!window[requestTask].length || dispatchTask.flag) return;
-    dispatchTask.flag = true;
-    Promise.resolve().then(() => {
-      const task = window[requestTask].shift();
-      HttpRequest.interceptors.request(task);
-      let [method, url] = task.open_params;
-      method = method.toLocaleUpperCase();
-
-      if (["GET"].includes(method)) {
-        handleGet(url, task);
+  window.dispatchTask = (isRelease, taskId) => {
+    if (!window[requestTask].length) return;
+    dispatchTask.isRelease = isRelease;
+    let task = {};
+    window[requestTask] = window[requestTask].filter((item) => {
+      if (item.id === taskId) {
+        task = item;
       }
-      if (["POST"].includes(method)) {
-        handlePost(url, task);
-      }
-      // dispatchTask.flag = false;
+      return item.id !== taskId;
     });
+    if (isRelease) {
+      task.open(...task.open_params);
+      task.setRequestHeader_params.forEach(([key, value]) => {
+        task.setRequestHeader(key, value);
+      });
+      task.send(task.send_params);
+      return;
+    }
+    HttpRequest.interceptors.request(task);
+    let [method, url] = task.open_params;
+    method = method.toLocaleUpperCase();
+
+    if (["GET"].includes(method)) {
+      handleGet(url, task);
+    }
+    if (["POST"].includes(method)) {
+      handlePost(url, task);
+    }
   };
 
   const handleGet = (url, task) => {
@@ -42,6 +53,7 @@ const interceptFunc = (openUrl) => {
     const tab = window.open();
     tab.location.href = url;
   };
+
   class HttpRequest extends window.XMLHttpRequest {
     constructor() {
       super(...arguments);
@@ -49,7 +61,7 @@ const interceptFunc = (openUrl) => {
     }
     init() {
       this.requestInfo = {
-        id: new Date().getTime(),
+        id: Math.floor(Math.random() * 999999999), //Date.now() 会有重复不知道为啥
       };
       window[requestTask].push(this.requestInfo);
       /**
@@ -65,12 +77,36 @@ const interceptFunc = (openUrl) => {
       });
       super.onreadystatechange = () => {
         if (readystatechangefn && this.readyState === 4) {
+          if (dispatchTask.isRelease) {
+            this.responseText = super.responseText;
+            readystatechangefn();
+            this.onreadystatechange = null;
+            window.postMessage(
+              {
+                name: "task",
+                task: {
+                  id: this.requestInfo.id,
+                  clear: true,
+                },
+              },
+              "*"
+            );
+            return;
+          }
           HttpRequest.interceptors.response((responseText) => {
             this.responseText = responseText;
             readystatechangefn();
             this.onreadystatechange = null;
-            dispatchTask.flag = false;
-            dispatchTask();
+            window.postMessage(
+              {
+                name: "task",
+                task: {
+                  id: this.requestInfo.id,
+                  clear: true,
+                },
+              },
+              "*"
+            );
           });
           openTab(`${openUrl}?${super.responseText}`);
         }
@@ -88,8 +124,6 @@ const interceptFunc = (openUrl) => {
             this.responseText = responseText;
             loadendfn();
             this.onloadend = null;
-            dispatchTask.flag = false;
-            dispatchTask();
           });
           openTab(`${openUrl}?${super.responseText}`);
         }
@@ -124,7 +158,17 @@ const interceptFunc = (openUrl) => {
     send(jsonStr) {
       this.requestInfo.send = (jsonStr) => super.send(jsonStr);
       this.requestInfo.send_params = jsonStr;
-      dispatchTask();
+      window.postMessage(
+        {
+          name: "task",
+          task: {
+            id: this.requestInfo.id,
+            method: this.requestInfo.open_params[0],
+            url: this.requestInfo.open_params[1].split("?")[0],
+          },
+        },
+        "*"
+      );
     }
   }
   HttpRequest.interceptors = {};
@@ -132,8 +176,9 @@ const interceptFunc = (openUrl) => {
   HttpRequest.interceptors.request = (task) => {
     const fn = (e) => {
       window.removeEventListener("request_intercept", fn);
-      const { isGet, content } = e.detail;
+      const { content } = e.detail;
       const [method, url, async] = task.open_params;
+      const isGet = method.toLocaleUpperCase() === "GET";
       task.open(method, isGet ? content : url, async);
       task.setRequestHeader_params.forEach(([key, value]) => {
         task.setRequestHeader(key, value);
@@ -174,7 +219,10 @@ const interceptFunc = (openUrl) => {
   );
 };
 const originFunc = () => {
-  window[Symbol.for("requestTask")] = [];
+  window[Symbol.for("requestTask")].forEach((task) =>
+    dispatchTask(true, task.id)
+  );
+  window[Symbol.for("requestTask")].length = 0;
   window.XMLHttpRequest = window.OriginXMLHttpRequest;
   delete window.OriginXMLHttpRequest;
   console.log(
@@ -206,6 +254,11 @@ chrome.action.onClicked.addListener(async (tab) => {
         tabId: tab.id,
         text: nextState,
       });
+      nextState === "OFF" &&
+        PORT &&
+        PORT.postMessage({
+          close: true,
+        });
     })
     .catch((e) => {
       console.log(e);
@@ -213,32 +266,69 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  chrome.tabs.query(
-    {
-      currentWindow: true,
-    },
-    (tabs) => {
-      const [target] = tabs.filter((t) => t.active);
+  try {
+    const task = JSON.parse(message);
+    PORT && PORT.postMessage(task);
+  } catch (error) {
+    chrome.tabs.query(
+      {
+        currentWindow: true,
+      },
+      (tabs) => {
+        const [target] = tabs.filter((t) => t.active);
+        chrome.scripting.executeScript({
+          target: { tabId: tabs[target.index - 1].id }, //找到之前发请求的tab
+          func: (message) => {
+            const [isReq, content] = message.split("@_@");
+            if (isReq === "true") {
+              window.dispatchEvent(
+                new CustomEvent("request_intercept", {
+                  detail: { content },
+                })
+              );
+            }
+            if (isReq === "false") {
+              window.dispatchEvent(
+                new CustomEvent("response_intercept", { detail: content })
+              );
+            }
+          },
+          args: [message],
+          world: "MAIN",
+        });
+      }
+    );
+  }
+});
+
+let PORT = null; //连接dev pannel
+chrome.runtime.onConnect.addListener(function (port) {
+  PORT = port;
+  const extensionListener = function (message, sender, sendResponse) {
+    if (message.name === "interceptors") {
       chrome.scripting.executeScript({
-        target: { tabId: tabs[target.index - 1].id }, //找到之前发请求的tab
-        func: (message) => {
-          const [isReq, content] = message.split("@_@");
-          if (isReq === "true") {
-            window.dispatchEvent(
-              new CustomEvent("request_intercept", {
-                detail: { content, isGet: true },
-              })
-            );
-          }
-          if (isReq === "false") {
-            window.dispatchEvent(
-              new CustomEvent("response_intercept", { detail: content })
-            );
-          }
+        target: { tabId: message.tabId },
+        func: (taskId) => {
+          dispatchTask(false, taskId);
         },
-        args: [message],
         world: "MAIN",
+        args: [message.taskId],
       });
     }
-  );
+    if (message.name === "release") {
+      chrome.scripting.executeScript({
+        target: { tabId: message.tabId },
+        func: (taskId) => {
+          dispatchTask(true, taskId);
+        },
+        world: "MAIN",
+        args: [message.taskId],
+      });
+    }
+  };
+  port.onMessage.addListener(extensionListener);
+  port.onDisconnect.addListener(function (port) {
+    port.onMessage.removeListener(extensionListener);
+    PORT = null;
+  });
 });
