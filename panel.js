@@ -4,12 +4,13 @@ chrome.devtools.panels.create(
   "panel.html",
   function (panel) {
     const render = (message) => {
+      console.log("收到的", message);
       if (message.clear) {
         const taskList = document.querySelectorAll("#container .item");
         const target = Array.from(taskList).find((task) => {
           return task.dataset.id == message.id;
         });
-        target.style.display = "none";
+        target && (target.style.display = "none");
         return;
       }
       const container = document.querySelector("#container");
@@ -52,10 +53,7 @@ chrome.devtools.panels.create(
     };
     const port = chrome.runtime.connect({ name: "devtools" });
     // 监听后台页面消息
-    port.onMessage.addListener((message) => {
-      console.log("收到的", message);
-      render(message);
-    });
+    port.onMessage.addListener(render);
     panel.onShown.addListener((window) => {});
     panel.onHidden.addListener(() => {});
   }

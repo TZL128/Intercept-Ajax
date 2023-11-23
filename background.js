@@ -38,7 +38,7 @@ const interceptFunc = (openUrl) => {
   };
 
   const handleGet = (url, task) => {
-    openTab(`${openUrl}?${url}`);
+    openTab(`${openUrl}?req?${url}`);
   };
 
   const handlePost = (url, task) => {
@@ -46,7 +46,7 @@ const interceptFunc = (openUrl) => {
     for (const [k, v] of Object.entries(JSON.parse(task.send_params || "{}"))) {
       str += `${k}=${v}&`;
     }
-    openTab(`${openUrl}?${url}${str}`);
+    openTab(`${openUrl}?req?${url}${str}`);
   };
 
   const openTab = (url) => {
@@ -122,7 +122,8 @@ const interceptFunc = (openUrl) => {
         this.responseText = responseText;
         realFn();
       });
-      openTab(`${openUrl}?${super.responseText}`);
+      //参数太大 超出浏览器地址栏限制 就会拿不到完整的参数
+      openTab(`${openUrl}?res?${super.responseText}`);
     }
     taskNotice(clear) {
       const [method, url] = this.requestInfo.open_params;
@@ -191,7 +192,7 @@ const interceptFunc = (openUrl) => {
   HttpRequest.interceptors.response = (cb = () => {}) => {
     const fn = (e) => {
       window.removeEventListener("response_intercept", fn);
-      cb(e.detail);
+      cb(e.detail.content);
     };
     window.addEventListener("response_intercept", fn);
   };
@@ -264,18 +265,14 @@ chrome.runtime.onMessage.addListener((message) => {
           target: { tabId: tabs[target.index - 1].id }, //找到之前发请求的tab
           func: (message) => {
             const [isReq, content] = message.split("@_@");
-            if (isReq === "true") {
-              window.dispatchEvent(
-                new CustomEvent("request_intercept", {
+            window.dispatchEvent(
+              new CustomEvent(
+                isReq === "true" ? "request_intercept" : "response_intercept",
+                {
                   detail: { content },
-                })
-              );
-            }
-            if (isReq === "false") {
-              window.dispatchEvent(
-                new CustomEvent("response_intercept", { detail: content })
-              );
-            }
+                }
+              )
+            );
           },
           args: [message],
           world: "MAIN",
