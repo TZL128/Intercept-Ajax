@@ -19,8 +19,12 @@
   },
   "background": {
     "service_worker": "background.js"
+
   },
   "permissions": ["scripting", "activeTab", "tabs"],
+  "host_permissions": [
+    "http://*/*", "https://*/*"
+  ],
   "commands": {
     "_execute_action": {
       "suggested_key": {
@@ -32,13 +36,8 @@
   "content_scripts": [
     {
       "js":["content.js"],
-      "matches":["<all_urls>"]
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["intercept.html", "intercept.js"],
-      "matches": ["http://*/*", "https://*/*"]
+      "matches":["<all_urls>"],
+      "run_at": "document_start"
     }
   ],
   "devtools_page": "panel.html"

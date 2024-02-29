@@ -5,6 +5,12 @@ window.addEventListener("message", function (event) {
   }
   const message = event.data;
   if (message.name === "task") {
-    chrome.runtime.sendMessage(JSON.stringify(message.task));
+    chrome.runtime.sendMessage({ ...message.task, toPanel: true });
+  }
+  if (message.name === "intercept") {
+    chrome.runtime.sendMessage({
+      ...message,
+      toPanel: true,
+    });
   }
 });

@@ -8,11 +8,32 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
+      :root {
+        --selectBgColor: #c33e3e;
+        --primaryColor: lightcoral;
+        --releaseColor: #278f27;
+        --borderColor: #eee;
+      }
+      #container {
+        height: 98vh;
+        overflow-y: scroll;
+      }
+      #container::-webkit-scrollbar {
+        width: 5px;
+      }
+      #container::-webkit-scrollbar-thumb {
+        background: var(--borderColor);
+        /* border-radius: 5px; */
+      }
       #container .item {
         display: flex;
         align-items: center;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid var(--borderColor);
         font-weight: bold;
+        padding: 3px 0px;
+      }
+      #container .item.active {
+        color: var(--primaryColor);
       }
 
       #container .item .method {
@@ -24,26 +45,117 @@
       #container .item .url {
         flex: 1;
       }
+      #container .item .interceptors {
+        color: var(--primaryColor);
+      }
+      #container .item .release {
+        color: var(--releaseColor);
+      }
       #container .item .interceptors,
       #container .item .release {
         flex-basis: 50px;
         cursor: pointer;
+        text-align: center;
       }
 
       #container .item .interceptors:hover,
       #container .item .release:hover {
-        color: blueviolet;
+        opacity: 0.7;
+      }
+      #intercept {
+        width: 100%;
+        padding-top: 10px;
+        display: none;
+      }
+      #textarea {
+        height: 65vh;
+        width: 100%;
+        min-width: 375px;
+        padding: 10px;
+        border: 1px solid var(--borderColor);
+        overflow-y: auto;
+        white-space: pre-wrap;
+        box-sizing: border-box;
+        font-size: 14px;
+        font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
+          "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
+        resize: none;
+        background-color: var(--primaryColor);
+        color: #f8f8f8;
+      }
+      #textarea:focus {
+        outline-color: transparent;
+        caret-color: #fff;
+      }
+
+      #textarea::-webkit-scrollbar {
+        width: 5px;
+      }
+      #textarea::-webkit-scrollbar-thumb {
+        background: var(--borderColor);
+        border-radius: 5px;
+      }
+
+      #textarea.shake {
+        animation: shake 800ms ease-in-out;
+        border-color: var(--primaryColor);
+      }
+
+      #textarea::selection {
+        background-color: var(--selectBgColor);
+      }
+      #textarea::-moz-selection {
+        background-color: var(--selectBgColor);
+      }
+      #textarea::-webkit-selection {
+        background-color: var(--selectBgColor);
+      }
+
+      #button {
+        width: 300px;
+        box-sizing: border-box;
+        padding: 12px 6px;
+        background-color: var(--primaryColor);
+        color: #fff;
+        cursor: pointer;
+        text-align: center;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+        user-select: none;
+        margin: 10px auto;
+      }
+      #button:active {
+        opacity: 0.8;
+      }
+
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translate3d(-1px, 0, 0);
+        }
+        20%,
+        80% {
+          transform: translate3d(+2px, 0, 0);
+        }
+        30%,
+        70% {
+          transform: translate3d(-4px, 0, 0);
+        }
+        40%,
+        60% {
+          transform: translate3d(+4px, 0, 0);
+        }
+        50% {
+          transform: translate3d(-4px, 0, 0);
+        }
       }
     </style>
   </head>
   <body>
-    <div id="container">
-      <!-- <div class="item">
-        <div class="method">方法</div>
-        <div class="url">url</div>
-        <div class="interceptors">拦截</div>
-        <div class="release">放行</div>
-      </div> -->
+    <div id="container"></div>
+    <div id="intercept">
+      <textarea id="textarea"></textarea>
+      <div id="button">完成</div>
     </div>
     <script src="./panel.js"></script>
   </body>

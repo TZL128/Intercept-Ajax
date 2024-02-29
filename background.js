@@ -1,9 +1,4 @@
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.action.setBadgeText({ text: "OFF" });
-});
-const openUrl = chrome.runtime.getURL("intercept.html");
-
-const interceptFunc = (openUrl) => {
+const interceptFunc = () => {
   const requestTask = Symbol.for("requestTask");
   window[requestTask] = [];
 
@@ -29,29 +24,31 @@ const interceptFunc = (openUrl) => {
     let [method, url] = task.open_params;
     method = method.toLocaleUpperCase();
 
-    if (["GET"].includes(method)) {
-      handleGet(url, task);
+    const sendReqParams = (params) =>
+      window.postMessage(
+        {
+          name: "intercept",
+          content: {
+            type: "request",
+            params,
+          },
+        },
+        "*"
+      );
+    //todo 参数类型判断
+    if (["GET", "OPTION"].includes(method)) {
+      const params = {};
+      const [, str] = url.split("?");
+      str &&
+        str.split("&").forEach((item) => {
+          const [k, v] = item.split("=");
+          params[k] = v;
+        });
+      sendReqParams(params);
     }
-    if (["POST"].includes(method)) {
-      handlePost(url, task);
+    if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+      sendReqParams(JSON.parse(task.send_params || "{}"));
     }
-  };
-
-  const handleGet = (url, task) => {
-    openTab(`${openUrl}?req?${url}`);
-  };
-
-  const handlePost = (url, task) => {
-    let str = "?";
-    for (const [k, v] of Object.entries(JSON.parse(task.send_params || "{}"))) {
-      str += `${k}=${v}&`;
-    }
-    openTab(`${openUrl}?req?${url}${str}`);
-  };
-
-  const openTab = (url) => {
-    const tab = window.open();
-    tab.location.href = url;
   };
 
   class HttpRequest extends window.XMLHttpRequest {
@@ -122,8 +119,17 @@ const interceptFunc = (openUrl) => {
         this.responseText = responseText;
         realFn();
       });
-      //参数太大 超出浏览器地址栏限制 就会拿不到完整的参数
-      openTab(`${openUrl}?res?${super.responseText}`);
+      //todo 响应值类型判断
+      window.postMessage(
+        {
+          name: "intercept",
+          content: {
+            type: "response",
+            params: JSON.parse(super.responseText),
+          },
+        },
+        "*"
+      );
     }
     taskNotice(clear) {
       const [method, url] = this.requestInfo.open_params;
@@ -169,21 +175,20 @@ const interceptFunc = (openUrl) => {
       const { content } = e.detail;
       const [method, url, async] = task.open_params;
       const isGet = method.toLocaleUpperCase() === "GET";
-      task.open(method, isGet ? content : url, async);
+      let getUrl = "";
+      if (isGet) {
+        [getUrl] = url.split("?");
+        getUrl += "?";
+      }
+      for (const [k, v] of Object.entries(content)) {
+        getUrl += `${k}=${v}&`;
+      }
+      task.open(method, isGet ? getUrl : url, async);
       task.setRequestHeader_params.forEach(([key, value]) => {
         task.setRequestHeader(key, value);
       });
       if (!isGet) {
-        const [, jsonStr] = content.split("?");
-        let obj = jsonStr
-          .slice(0, -1)
-          .split("&")
-          .reduce((pre, cur) => {
-            const [k, v] = cur.split("=");
-            pre[k] = v;
-            return pre;
-          }, {});
-        task.send_params = JSON.stringify(obj);
+        task.send_params = JSON.stringify(content);
       }
       task.send(task.send_params);
     };
@@ -199,14 +204,6 @@ const interceptFunc = (openUrl) => {
 
   window.OriginXMLHttpRequest = window.XMLHttpRequest;
   window.XMLHttpRequest = HttpRequest;
-  console.log(
-    "%c插件开启拦截",
-    `background-color:#1296db;
-    border-radius:3px;
-    border:1px solid #ccc;
-    padding:2px 4px;
-    color:#fff;`
-  );
 };
 const originFunc = () => {
   window[Symbol.for("requestTask")].forEach((task) =>
@@ -215,89 +212,36 @@ const originFunc = () => {
   window[Symbol.for("requestTask")].length = 0;
   window.XMLHttpRequest = window.OriginXMLHttpRequest;
   delete window.OriginXMLHttpRequest;
-  console.log(
-    "%c插件关闭拦截",
-    `background-color:red;
-    border-radius:3px;
-    border:1px solid #ccc;
-    padding:2px 4px;
-    color:#fff;`
-  );
+  // delete window.dispatchTask;
 };
-const funMap = {
-  ON: interceptFunc,
-  OFF: originFunc,
-};
-
-chrome.action.onClicked.addListener(async (tab) => {
-  const prevState = await chrome.action.getBadgeText({ tabId: tab.id });
-  const nextState = prevState === "ON" ? "OFF" : "ON";
-  chrome.scripting
-    .executeScript({
-      target: { tabId: tab.id },
-      func: funMap[nextState],
-      args: [openUrl],
-      world: "MAIN",
-    })
-    .then(() => {
-      chrome.action.setBadgeText({
-        tabId: tab.id,
-        text: nextState,
-      });
-    })
-    .catch((e) => {
-      console.log(e);
-    });
-});
-
 chrome.runtime.onMessage.addListener((message) => {
-  try {
-    const task = JSON.parse(message);
-    PORT && PORT.postMessage(task);
-  } catch (error) {
-    chrome.tabs.query(
-      {
-        currentWindow: true,
-      },
-      (tabs) => {
-        const [target] = tabs.filter((t) => t.active);
-        chrome.scripting.executeScript({
-          target: { tabId: tabs[target.index - 1].id }, //找到之前发请求的tab
-          func: (message) => {
-            const [isReq, content] = message.split("@_@");
-            window.dispatchEvent(
-              new CustomEvent(
-                isReq === "true" ? "request_intercept" : "response_intercept",
-                {
-                  detail: { content },
-                }
-              )
-            );
-          },
-          args: [message],
-          world: "MAIN",
-        });
-      }
-    );
-  }
-});
+  if (!message.toBackground) return;
 
-let PORT = null; //连接dev pannel
-chrome.runtime.onConnect.addListener(function (port) {
-  PORT = port;
-  const extensionListener = function (message) {
-    chrome.scripting.executeScript({
-      target: { tabId: message.tabId },
-      func: (isRelease, taskId) => {
-        dispatchTask(isRelease, taskId);
+  const messageHandle = (message) => {
+    const { type, value, params } = message;
+    const Map = {
+      switch: {
+        func: value ? interceptFunc : originFunc,
+        args: [],
       },
-      world: "MAIN",
-      args: [message.name === "release", message.taskId],
-    });
+      operate: {
+        func: (value, taskId) => dispatchTask(value, taskId),
+        args: [!value, params],
+      },
+      interceptor: {
+        func: (value, content) =>
+          window.dispatchEvent(
+            new CustomEvent(`${value}_intercept`, { detail: { content } })
+          ),
+        args: [value, params],
+      },
+    };
+    return Map[type];
   };
-  port.onMessage.addListener(extensionListener);
-  port.onDisconnect.addListener(function (port) {
-    port.onMessage.removeListener(extensionListener);
-    PORT = null;
+
+  chrome.scripting.executeScript({
+    target: { tabId: message.tabId },
+    world: "MAIN",
+    ...messageHandle(message),
   });
 });
