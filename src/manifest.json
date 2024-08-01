@@ -1,0 +1,36 @@
+{
+  "name": "Intercept-Ajax",
+  "manifest_version": 3,
+  "description": "Simple interception of ajax requests(post,get)",
+  "version": "1.0.0",
+  "action": {
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "32": "assets/icon-32.png",
+      "48": "assets/icon-48.png",
+      "128": "assets/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+
+  },
+  "permissions": ["scripting", "activeTab", "tabs"],
+  "host_permissions": [
+    "http://*/*", "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "js":["content.js"],
+      "matches":["<all_urls>"],
+      "run_at": "document_start"
+    }
+  ],
+  "devtools_page": "panel.html"
+}
