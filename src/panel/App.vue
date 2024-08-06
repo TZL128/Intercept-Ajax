@@ -12,6 +12,10 @@ const ActionStatusMap = {
   req: 1,
   res: 2
 }
+const ParamsTypeMap = {
+  Json: 'Json',
+  FormData: 'FormData'
+}
 const actionStatus = ref(0)
 const requestTaskList = ref([
   // {
@@ -22,6 +26,8 @@ const requestTaskList = ref([
 ])
 const interceptTask = ref({})
 const jsonParam = ref('{}')
+const formDataParam = ref([])
+const paramsType = ref()
 const isLegal = ref(true)
 const tabId = chrome.devtools.inspectedWindow.tabId
 
@@ -39,10 +45,11 @@ const isIntercepting = computed(() => !!interceptTask.value.id)
 
 onMounted(() => {
   const receiveMessage = (data) => {
-    const { from, message, key } = data
+    const { from, message, key, messageType } = data
     if (from !== 'content') {
       return
     }
+    paramsType.value = messageType
     switch (key) {
       case 'render-request-task':
         requestTaskList.value.push(message)
@@ -51,10 +58,10 @@ onMounted(() => {
         removeRequestTaskById(message)
         break;
       case "request-params":
-        handleRequestParams(message)
+        handleRequestParams(message, messageType)
         break;
       case "response-params":
-        handleResponseParams(message)
+        handleResponseParams(message, messageType)
         break
     }
 
@@ -106,25 +113,53 @@ const handleIntercept = (task) => {
   })
 }
 
-const handleRequestParams = (params) => {
+const handleRequestParams = (params, type) => {
   actionStatus.value = ActionStatusMap.req
-  jsonParam.value = JSON.stringify(params, null, 2)
+  switch (type) {
+    case ParamsTypeMap.FormData:
+      formDataParam.value = Object.keys(params).map(key => {
+        let value = params[key]
+        let type = Object.prototype.toString.call(value).slice(8, -1).toLowerCase()
+        if (value.__file__) {
+          value = [{ name: value.name, fake: true }] //打上fake标记，表示这个文件是传过来的，后续根据这个标记处理数据
+          type = 'file'
+        }
+        return {
+          key,
+          type,
+          value
+        }
+      })
+      break;
+    default:
+      jsonParam.value = JSON.stringify(params, null, 2)
+      break;
+  }
 
 }
 
-const handleResponseParams = params => {
+const handleResponseParams = (params, type) => {
   actionStatus.value = ActionStatusMap.res
   jsonParam.value = JSON.stringify(params, null, 2)
 }
 
-const handleNext = useDebounceFn(() => {
+const handleNext = useDebounceFn(async () => {
   const typeMap = {
     [ActionStatusMap.req]: 'request-params',
     [ActionStatusMap.res]: 'response-params'
   }
+  const data = { taskId: interceptTask.value.id, paramsType: paramsType.value }
+  switch (paramsType.value) {
+    case ParamsTypeMap.FormData:
+      data.params = await formDataToJson()
+      break;
+    case ParamsTypeMap.Json:
+      data.params = JSON.parse(jsonParam.value)
+      break
+  }
   sendMessage({
     type: typeMap[actionStatus.value],
-    data: { taskId: interceptTask.value.id, params: JSON.parse(jsonParam.value) }
+    data
   })
   //将当前拦截的任务清掉，还原状态
   if (actionStatus.value === ActionStatusMap.res) {
@@ -132,10 +167,45 @@ const handleNext = useDebounceFn(() => {
     interceptTask.value = {}
     actionStatus.value = ActionStatusMap.normal
     jsonParam.value = '{}'
+    formDataParam.value = []
   }
 }, 250)
 
 
+const formDataToJson = async () => {
+  const json = {}
+  for (const item of formDataParam.value) {
+    if (item.type === 'file') {
+      const [{ raw, name, fake } = {}] = item.value
+      json[item.key] = '' //当类型是file并且没有选择文件，value为空字符串.
+      if (fake) {
+        json[item.key] = {
+          __file__: true,
+          fake
+        }
+      }
+      if (raw) {
+        json[item.key] = {
+          __file__: true,
+          base64: await fileToBase64(raw),
+          name,
+        }
+      }
+    } else {
+      json[item.key] = item.value
+    }
+  }
+  return json
+}
+
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  })
+}
 
 const tableRowClassName = ({ row }) => {
   if (row.id === interceptTask.value.id) {
@@ -189,7 +259,9 @@ const tableRowClassName = ({ row }) => {
               @click="handleNext">Next</el-button>
           </div>
         </Title>
-        <JsonEdit v-model:json="jsonParam" @lint-status="res => isLegal = res" />
+        <JsonEdit v-if="paramsType === ParamsTypeMap.Json" v-model:json="jsonParam"
+          @lint-status="res => isLegal = res" />
+        <FormDataEdit v-if="paramsType === ParamsTypeMap.FormData" v-model:formData="formDataParam" />
       </div>
     </div>
     <el-empty v-else description="请在页面发起请求" />

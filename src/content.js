@@ -1,6 +1,6 @@
 window.addEventListener("message", (event) => {
   //Only accept messages from the same frame
-  const { key, message, sender } = event.data;
+  const { key, message, messageType, sender } = event.data;
   if (sender !== "intercept-ajax") {
     return;
   }
@@ -9,7 +9,16 @@ window.addEventListener("message", (event) => {
     case "remove-request-task":
     case "request-params":
     case "response-params":
-      chrome.runtime.sendMessage({ message, from: "content", key });
+      try {
+        chrome.runtime.sendMessage({
+          message,
+          messageType,
+          from: "content",
+          key,
+        });
+      } catch (error) {
+        console.warn(error);
+      }
       break;
   }
 });

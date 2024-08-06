@@ -25,6 +25,7 @@ const interceptFunc = () => {
      */
     let params = {};
     if (!release && targetTask) {
+      let messageType = "Json";
       HttpRequest.interceptorsRequest(targetTask);
       let [method, url] = targetTask.openParams;
       method = method.toUpperCase();
@@ -38,13 +39,85 @@ const interceptFunc = () => {
       }
 
       if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
-        params = JSON.parse(targetTask.sendParams ?? "{}");
+        switch (Object.prototype.toString.call(targetTask.sendParams)) {
+          case "[object FormData]":
+            targetTask.sendParams.keys().forEach((key) => {
+              const value = targetTask.sendParams.get(key);
+              if (value instanceof File) {
+                params[key] = {
+                  name: value.name,
+                  type: value.type,
+                  size: value.size,
+                  __file__: true,
+                };
+                /**
+                 * 因为传过去的只有文件信息，本不是真正的文件，所以要将文件挂在任务身上，后续使用
+                 */
+                targetTask.files = [value];
+              } else {
+                params[key] = value;
+              }
+            });
+            messageType = "FormData";
+            break;
+          default:
+            params = JSON.parse(targetTask.sendParams ?? "{}");
+            break;
+        }
       }
       window.postMessage(
-        { key: "request-params", message: params, sender: "intercept-ajax" },
+        {
+          key: "request-params",
+          message: params,
+          messageType,
+          sender: "intercept-ajax",
+        },
         "*"
       );
     }
+  };
+
+  const base64ToFile = (base64, fileName) => {
+    //将base64转换为blob
+    const dataURLtoBlob = function (dataurl) {
+      let arr = dataurl.split(","),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]),
+        n = bstr.length,
+        u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], { type: mime });
+    };
+    //将blob转换为file
+    const blobToFile = function (theBlob, fileName) {
+      theBlob.lastModifiedDate = new Date();
+      theBlob.name = fileName;
+      return new window.File([theBlob], theBlob.name, { type: theBlob.type });
+    };
+    //调用
+    const blob = dataURLtoBlob(base64);
+    const file = blobToFile(blob, fileName);
+
+    return file;
+  };
+
+  const jsonToFormData = (json, files) => {
+    const formData = new FormData();
+    for (let key in json) {
+      if (json.hasOwnProperty(key)) {
+        const value = json[key];
+        if (value.__file__) {
+          value.fake
+            ? formData.append(key, files[0])
+            : formData.append(key, base64ToFile(value.base64, value.name));
+        } else {
+          formData.append(key, value);
+        }
+      }
+    }
+    return formData;
   };
 
   class HttpRequest extends window.XMLHttpRequest {
@@ -135,7 +208,10 @@ const interceptFunc = () => {
       //先将响应参数发送到面板改写
       this.noticeContentScript(
         "response-params",
-        JSON.parse(super.responseText)
+        JSON.parse(super.responseText),
+        ["blob", "arraybuffer"].includes(super.responseType) //不含文件的就用json
+          ? "FormData"
+          : "Json"
       );
     }
 
@@ -175,27 +251,38 @@ const interceptFunc = () => {
       });
     }
 
-    noticeContentScript(key, message) {
-      window.postMessage({ key, message, sender: "intercept-ajax" }, "*");
+    noticeContentScript(key, message, messageType = "Josn") {
+      window.postMessage(
+        { key, message, messageType, sender: "intercept-ajax" },
+        "*"
+      );
     }
   }
+
   HttpRequest.interceptorsRequest = (task) => {
     const cb = (event) => {
       window.removeEventListener("interceptors-request", cb);
-      const parmas = event.detail;
+      const { params, paramsType } = event.detail;
       const [method, url, async] = task.openParams;
       const isGet = method.toUpperCase() === "GET";
       let getUrl = "";
       if (isGet) {
         [getUrl] = url.split("?");
-        getUrl += `?${new URLSearchParams(parmas).toString()}`;
+        getUrl += `?${new URLSearchParams(params).toString()}`;
       }
       task.open(method, isGet ? getUrl : url, async);
       task.setRequestHeaderParams.forEach(([key, value]) =>
         task.setRequestHeader(key, value)
       );
       if (!isGet) {
-        task.sendParams = JSON.stringify(parmas);
+        switch (paramsType) {
+          case "Json":
+            task.sendParams = JSON.stringify(params);
+            break;
+          case "FormData":
+            task.sendParams = jsonToFormData(params, task.files);
+            break;
+        }
       }
       task.send(task.sendParams);
     };
@@ -274,7 +361,7 @@ chrome.runtime.onMessage.addListener((message) => {
         (data) =>
           window.dispatchEvent(
             new CustomEvent("interceptors-request", {
-              detail: data.params,
+              detail: { params: data.params, paramsType: data.paramsType },
             })
           ),
         [message.data],
