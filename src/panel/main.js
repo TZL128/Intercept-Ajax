@@ -1,5 +1,5 @@
 import { createApp } from "vue";
-import App from "./App.vue";
+import App from "./panel.vue";
 import "virtual:uno.css";
 import "./reset.css";
 

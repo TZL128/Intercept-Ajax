@@ -94,6 +94,6 @@ const theme = EditorView.theme(
 const extensions = [JsonMode(), lintGutter(), linter(jsonLint), theme,];
 </script>
 <template>
-  <codemirror v-model="json" placeholder="编辑参数" :style="{ height: '480px' }" :autofocus="true" :indent-with-tab="true"
-    :tab-size="2" :extensions="extensions" />
+  <codemirror v-model="json" placeholder="编辑参数" :autofocus="true" :indent-with-tab="true" :tab-size="2"
+    :extensions="extensions" />
 </template>

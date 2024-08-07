@@ -14,7 +14,7 @@ const changeType = (v, row) => {
 }
 </script>
 <template>
-  <el-table :data="data" style="width: 100%" border height="480px">
+  <el-table :data="data" style="width: 100%" border>
     <el-table-column prop="key" label="参数名" width="200">
       <template #default="{ row }">
         <el-input v-model="row.key" placeholder="参数名"></el-input>

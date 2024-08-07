@@ -346,3 +346,7 @@ template {
 [hidden] {
   display: none;
 }
+
+:root {
+  --primary: #9373EE;
+}

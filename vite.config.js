@@ -23,7 +23,7 @@ export default defineConfig({
     AutoImport({
       imports: ["vue", "@vueuse/core"],
       dts: "src/auto-imports.d.ts",
-      dirs: ["src/stores", "src/hooks", "src/utils"],
+      dirs: ["src/stores", "src/hooks", "src/utils", "src/constant"],
       resolvers: [ElementPlusResolver()],
     }),
     UnoCSS(),

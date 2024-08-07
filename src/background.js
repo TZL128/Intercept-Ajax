@@ -5,7 +5,7 @@ const interceptFunc = () => {
   window.intercepterDispatchTask = (taskId, release) => {
     if (!window[requestTask].length) return;
     let targetTask = null;
-    window[requestTask].filter((task) => {
+    window[requestTask] = window[requestTask].filter((task) => {
       if (task.id === taskId) {
         task.release = release; //给当前任务挂上，是否释放标记
         targetTask = task;
@@ -248,9 +248,15 @@ const interceptFunc = () => {
       HttpRequest.interceptorsResponse((data) => {
         switch (data.paramsType) {
           case "FormData":
-            this.response = data.params.response.fake
-              ? this.instance.files.pop()
-              : baseToBlob(data.params.response.base64);
+            if (!data.params) {
+              this.response = new Blob([]);
+            }
+            if (data.params.fake) {
+              this.response = this.instance.files.pop();
+            }
+            if (data.params.response.base64) {
+              this.response = baseToBlob(data.params.response.base64);
+            }
             break;
           default:
             this.responseText = data.params;
@@ -260,11 +266,13 @@ const interceptFunc = () => {
       });
       //先将响应参数发送到面板改写
       let messageType = "Json",
-        message = JSON.parse(super.responseText);
+        message = "";
       if (["blob", "arraybuffer"].includes(super.responseType)) {
         messageType = "FormData";
         message = getFileExt(this); //await toBase64(super.response);
         this.instance.files = [super.response]; //挂在blob挂在身上
+      } else {
+        message = JSON.parse(super.responseText);
       }
       this.noticeContentScript("response-params", message, messageType);
     }

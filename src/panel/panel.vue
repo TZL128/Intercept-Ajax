@@ -1,34 +1,22 @@
 <script setup>
-import { Open } from '@element-plus/icons-vue'
+import { Splitpanes, Pane } from 'splitpanes'
+import 'splitpanes/dist/splitpanes.css'
+import { ParamsTypeMap, ActionStatusMap } from '@/constant/index'
 
 
-/**
- * 0未操作
- * 1请求拦截
- * 2响应拦截
- */
-const ActionStatusMap = {
-  normal: 0,
-  req: 1,
-  res: 2
-}
-const ParamsTypeMap = {
-  Json: 'Json',
-  FormData: 'FormData'
-}
+
 const actionStatus = ref(0)
 const requestTaskList = ref([
-  // {
-  //   id: 1,
-  //   method: 'GET',
-  //   url: 'https://www.baidu.com',
-  // }
+
 ])
-const interceptTask = ref({})
+const interceptTask = ref({
+  // id: 1,
+  // method: 'post',
+  // url: 'https://www.baidu.com',
+})
 const jsonParam = ref('{}')
 const formDataParam = ref([])
 const paramsType = ref()
-const isLegal = ref(true)
 const tabId = chrome.devtools.inspectedWindow.tabId
 
 const paramsText = computed(() => {
@@ -42,6 +30,7 @@ const paramsText = computed(() => {
 })
 
 const isIntercepting = computed(() => !!interceptTask.value.id)
+
 
 onMounted(() => {
   const receiveMessage = (data) => {
@@ -64,9 +53,7 @@ onMounted(() => {
         handleResponseParams(message, messageType)
         break
     }
-
   }
-
   chrome.runtime.onMessage.addListener(receiveMessage);
 
   chrome.devtools.panels.create(
@@ -240,73 +227,42 @@ const base64ToFile = (base64, fileName) => {
   //调用
   const blob = dataURLtoBlob(base64);
   const file = blobToFile(blob, fileName);
-
   return file;
 };
 
-const tableRowClassName = ({ row }) => {
-  if (row.id === interceptTask.value.id) {
-    return 'text-primary'
-  }
-  return ''
-}
+provide(API_LIST, requestTaskList)
+provide(CURRENT_API, interceptTask)
+provide(JSON_PARAMS, jsonParam)
+provide(PARAMS_TYPE, paramsType)
+provide(PARAMS_TEXT, paramsText)
+provide(INTERCEPT_ACTIVE, isIntercepting)
+provide(FORMDATA_PARAMS, formDataParam)
+provide(INTERCEPT_API, handleIntercept)
+provide(RELEASE_API, handleRelease)
+provide(RELEASE_ALL_API, handleReleaseAll)
+provide(NEXT_STEP, handleNext)
+
+
 
 
 
 </script>
 
 <template>
-  <div h-screen box-border p-2.5>
-    <div v-if="requestTaskList.length">
-      <Title>
-        <div flex items-center justify-between>
-          <span>请求列表</span>
-          <el-tooltip class="box-item" effect="light" content="全部放行" placement="left">
-            <el-icon cursor-pointer :size="20" color="#e51400" @click="handleReleaseAll" v-show="!isIntercepting">
-              <Open />
-            </el-icon>
-          </el-tooltip>
-
-        </div>
-      </Title>
-      <div>
-        <el-table :data="requestTaskList" w-full height="300" :row-class-name="tableRowClassName">
-          <el-table-column type="index" width="60" label="序号" />
-          <el-table-column prop="method" label="请求方式" width="100">
-            <template #default="{ row }">
-              <span :class="[row.method === 'GET' ? 'text-suc' : 'text-err']">{{ row.method }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="url" label="请求URL" />
-          <el-table-column label="操作" width="100">
-            <template #default="{ row }">
-              <div v-if="!isIntercepting">
-                <span mr-2.5 cursor-pointer @click="handleRelease(row.id)">放行</span>
-                <span text-primary cursor-pointer @click="handleIntercept(row)">拦截</span>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      <div v-show="actionStatus !== ActionStatusMap.normal">
-        <Title>
-          <div flex items-center justify-between>
-            <span>{{ paramsText }}</span>
-            <el-button :disabled="!isLegal" type="primary" text-white color="#9373EE" size="small"
-              @click="handleNext">Next</el-button>
-          </div>
-        </Title>
-        <JsonEdit v-if="paramsType === ParamsTypeMap.Json" v-model:json="jsonParam"
-          @lint-status="res => isLegal = res" />
-        <FormDataEdit v-if="paramsType === ParamsTypeMap.FormData" v-model:formData="formDataParam" />
-      </div>
-    </div>
-    <el-empty v-else description="请在页面发起请求" />
+  <div h-screen box-border>
+    <splitpanes class="default-theme">
+      <pane :max-size="50" :size="25">
+        <PaneLeft />
+      </pane>
+      <pane>
+        <PaneContent />
+      </pane>
+    </splitpanes>
   </div>
 </template>
 
 <style scoped>
-::v-deep(.el-table--fit .el-table__inner-wrapper):before {
-  display: none;
+::v-deep(.splitpanes.default-theme .splitpanes__pane) {
+  background-color: #fff;
 }
 </style>

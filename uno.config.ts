@@ -8,14 +8,18 @@ import {
   transformerDirectives,
   transformerVariantGroup
 } from 'unocss'
+import { presetScrollbar } from 'unocss-preset-scrollbar'
+
 
 export default defineConfig({
   shortcuts: [],
   theme: {
     colors: {
       primary: '#9373EE',
-      suc: '#17B26A',
-      err: '#EF6820'
+      get: '#17B26A',
+      post: '#EF6820',
+      normal: '#344054',
+      tip: '#f79009'
     }
   },
   presets: [
@@ -26,6 +30,12 @@ export default defineConfig({
     presetWebFonts({
       fonts: {},
     }),
+    presetScrollbar({
+      scrollbarTrackColor: 'transparent',
+      scrollbarThumbColor: '#eaecf0',
+      scrollbarWidth: '5px',
+    }),
+
   ],
   transformers: [
     transformerDirectives(),
