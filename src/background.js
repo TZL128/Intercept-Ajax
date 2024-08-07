@@ -77,19 +77,19 @@ const interceptFunc = () => {
     }
   };
 
+  const baseToBlob = (base64) => {
+    let arr = base64.split(","),
+      mime = arr[0].match(/:(.*?);/)[1],
+      bstr = atob(arr[1]),
+      n = bstr.length,
+      u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
   const base64ToFile = (base64, fileName) => {
-    //将base64转换为blob
-    const dataURLtoBlob = function (dataurl) {
-      let arr = dataurl.split(","),
-        mime = arr[0].match(/:(.*?);/)[1],
-        bstr = atob(arr[1]),
-        n = bstr.length,
-        u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-      }
-      return new Blob([u8arr], { type: mime });
-    };
     //将blob转换为file
     const blobToFile = function (theBlob, fileName) {
       theBlob.lastModifiedDate = new Date();
@@ -97,10 +97,35 @@ const interceptFunc = () => {
       return new window.File([theBlob], theBlob.name, { type: theBlob.type });
     };
     //调用
-    const blob = dataURLtoBlob(base64);
+    const blob = baseToBlob(base64);
     const file = blobToFile(blob, fileName);
 
     return file;
+  };
+
+  // const toBase64 = (file) => {
+  //   return new Promise((resolve, reject) => {
+  //     const reader = new FileReader();
+  //     reader.onload = () => {
+  //       resolve(reader.result);
+  //     };
+  //     reader.onerror = reject;
+  //     reader.readAsDataURL(file);
+  //   });
+  // };
+
+  const getFileExt = (xhr) => {
+    const contentDisposition = xhr.getResponseHeader("Content-Disposition");
+    let ext = "";
+    if (contentDisposition && contentDisposition.includes("filename=")) {
+      const filename = contentDisposition
+        .split("filename=")[1]
+        .split(";")[0]
+        .trim();
+      // 解码 URL 编码的文件名
+      [, ext] = decodeURIComponent(filename).split(".");
+    }
+    return ext;
   };
 
   const jsonToFormData = (json, files) => {
@@ -127,13 +152,17 @@ const interceptFunc = () => {
       this.rewrite();
     }
 
+    set responseType(v) {
+      super.responseType = v;
+    }
+
     rewrite() {
       this.rewriteResponseText();
       this.rewriteOnreadystatechange();
       this.rewriteOnloadend();
     }
 
-    //Cannot set property responseText of #<XMLHttpRequest> which has only a getter
+    //Cannot set property responseText,response of #<XMLHttpRequest> which has only a getter
     rewriteResponseText() {
       let responseText = "";
       Object.defineProperty(this, "responseText", {
@@ -142,6 +171,16 @@ const interceptFunc = () => {
         },
         get() {
           return responseText;
+        },
+      });
+
+      let response = "";
+      Object.defineProperty(this, "response", {
+        set(v) {
+          response = v;
+        },
+        get() {
+          return response;
         },
       });
     }
@@ -191,7 +230,12 @@ const interceptFunc = () => {
 
     taskCompleted(cb) {
       if (this.instance.release) {
-        this.responseText = super.responseText;
+        // 为blob的时候 没有responseText
+        if (["blob"].includes(super.responseType)) {
+          this.response = super.response;
+        } else {
+          this.responseText = super.responseText;
+        }
         cb();
         return;
       }
@@ -201,18 +245,28 @@ const interceptFunc = () => {
        * 当响应值被改写完成后，在执行自己身上的onloadend 活 onreadystatechange 方法
        *
        */
-      HttpRequest.interceptorsResponse((responseText) => {
-        this.responseText = responseText;
+      HttpRequest.interceptorsResponse((data) => {
+        switch (data.paramsType) {
+          case "FormData":
+            this.response = data.params.response.fake
+              ? this.instance.files.pop()
+              : baseToBlob(data.params.response.base64);
+            break;
+          default:
+            this.responseText = data.params;
+            break;
+        }
         cb();
       });
       //先将响应参数发送到面板改写
-      this.noticeContentScript(
-        "response-params",
-        JSON.parse(super.responseText),
-        ["blob", "arraybuffer"].includes(super.responseType) //不含文件的就用json
-          ? "FormData"
-          : "Json"
-      );
+      let messageType = "Json",
+        message = JSON.parse(super.responseText);
+      if (["blob", "arraybuffer"].includes(super.responseType)) {
+        messageType = "FormData";
+        message = getFileExt(this); //await toBase64(super.response);
+        this.instance.files = [super.response]; //挂在blob挂在身上
+      }
+      this.noticeContentScript("response-params", message, messageType);
     }
 
     pushTask() {
@@ -268,7 +322,9 @@ const interceptFunc = () => {
       let getUrl = "";
       if (isGet) {
         [getUrl] = url.split("?");
-        getUrl += `?${new URLSearchParams(params).toString()}`;
+        getUrl += `?${decodeURIComponent(
+          new URLSearchParams(params).toString()
+        )}`;
       }
       task.open(method, isGet ? getUrl : url, async);
       task.setRequestHeaderParams.forEach(([key, value]) =>
@@ -373,7 +429,7 @@ chrome.runtime.onMessage.addListener((message) => {
         (data) =>
           window.dispatchEvent(
             new CustomEvent("interceptors-response", {
-              detail: data.params,
+              detail: { params: data.params, paramsType: data.paramsType },
             })
           ),
         [message.data],
