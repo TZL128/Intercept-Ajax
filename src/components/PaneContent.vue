@@ -4,7 +4,6 @@ import { ParamsTypeMap } from '@/constant/index'
 
 
 const api = inject(CURRENT_API)
-const paramsType = inject(PARAMS_TYPE)
 const paramsText = inject(PARAMS_TEXT)
 const jsonPrams = inject(JSON_PARAMS)
 const formDataParam = inject(FORMDATA_PARAMS)
@@ -14,15 +13,21 @@ const isLegal = ref(true)
 const wrap = ref()
 const height = ref()
 
-watch(wrap, () => {
+const { stop } = useResizeObserver(document.documentElement, () => calcH())
+
+onBeforeUnmount(stop)
+
+watch(wrap, () => calcH(), { deep: true })
+
+const classStr = computed(() => ["GET"].includes((api?.value.method || '').toLocaleUpperCase()) ? 'bg-get' : 'bg-post')
+const edit = computed(() => api?.value.edit)
+
+const calcH = () => {
   const H = document.documentElement.clientHeight
   const { top }
     = useElementBounding(wrap)
   height.value = H - top.value - 15
-  console.log(height.value)
-}, { deep: true })
-
-const classStr = computed(() => ["GET"].includes((api?.value.method || '').toLocaleUpperCase()) ? 'bg-get' : 'bg-post')
+}
 
 
 </script>
@@ -43,11 +48,11 @@ const classStr = computed(() => ["GET"].includes((api?.value.method || '').toLoc
             type="primary" :disabled="!isLegal" size="small" @click="handleNext?.()">完成</el-button>
         </div>
         <div ref="wrap">
-          <template v-if="paramsType === ParamsTypeMap.Json">
+          <template v-if="edit === ParamsTypeMap.Json">
             <JsonEdit v-model:json="jsonPrams" @lint-status="res => isLegal = res"
               :style="{ 'max-height': `${height}px` }" />
           </template>
-          <template v-if="paramsType === ParamsTypeMap.FormData">
+          <template v-if="edit === ParamsTypeMap.FormData">
             <FormDataEdit v-model:formData="formDataParam" />
           </template>
         </div>

@@ -67,6 +67,9 @@ const theme = EditorView.theme(
     "&.cm-focused .cm-selectionBackground ": {
       background: '#1a1a1a !important',
     },
+    "&.cm-focused": {
+      outline: "none",
+    },
     // 字符串颜色
     ".ͼe": {
       color: '#98c379'
@@ -82,7 +85,21 @@ const theme = EditorView.theme(
       borderRadius: '50%',
       width: '10px',
       height: '10px',
-    }
+    },
+    ".cm-scroller::-webkit-scrollbar": {
+      width: "8px",
+      height: "8px",
+    },
+    ".cm-scroller::-webkit-scrollbar-track": {
+      background: "#282c34",
+    },
+    ".cm-scroller::-webkit-scrollbar-thumb": {
+      background: "#495162",
+      borderRadius: "4px",
+    },
+    ".cm-scroller::-webkit-scrollbar-thumb:hover": {
+      background: "#5c6370",
+    },
 
 
   },
