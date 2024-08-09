@@ -4,7 +4,7 @@ import vue from "@vitejs/plugin-vue";
 import AutoImport from "unplugin-auto-import/vite";
 import Components from "unplugin-vue-components/vite";
 import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
-
+import { terser } from "rollup-plugin-terser";
 import UnoCSS from "unocss/vite";
 import copy from "rollup-plugin-copy";
 
@@ -34,6 +34,7 @@ export default defineConfig({
       ],
       hook: "writeBundle",
     }),
+    terser(),
   ],
   build: {
     rollupOptions: {
@@ -43,6 +44,17 @@ export default defineConfig({
         assetFileNames: "[name].[hash].[ext]",
         entryFileNames: "[name].js",
         dir: "dist",
+        manualChunks: {
+          vue: ["vue"],
+          "element-plus": ["element-plus", "@element-plus/icons-vue"],
+          "@vueuse/core": ["@vueuse/core"],
+          "vue-codemirror": [
+            "@codemirror/lang-javascript",
+            "@codemirror/lang-json",
+            "@codemirror/lint",
+            "@codemirror/view",
+          ],
+        },
       },
     },
   },

@@ -11,6 +11,7 @@ declare global {
   const CURRENT_API: typeof import('./constant/index.js')['CURRENT_API']
   const EffectScope: typeof import('vue')['EffectScope']
   const ElMessage: typeof import('element-plus/es')['ElMessage']
+  const FILE_PARAMS: typeof import('./constant/index.js')['FILE_PARAMS']
   const FORMDATA_PARAMS: typeof import('./constant/index.js')['FORMDATA_PARAMS']
   const INTERCEPT_ACTIVE: typeof import('./constant/index.js')['INTERCEPT_ACTIVE']
   const INTERCEPT_API: typeof import('./constant/index.js')['INTERCEPT_API']

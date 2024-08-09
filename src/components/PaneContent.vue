@@ -7,6 +7,7 @@ const api = inject(CURRENT_API)
 const paramsText = inject(PARAMS_TEXT)
 const jsonPrams = inject(JSON_PARAMS)
 const formDataParam = inject(FORMDATA_PARAMS)
+const fileParams = inject(FILE_PARAMS)
 const handleNext = inject(NEXT_STEP)
 const isLegal = ref(true)
 
@@ -54,6 +55,9 @@ const calcH = () => {
           </template>
           <template v-if="edit === ParamsTypeMap.FormData">
             <FormDataEdit v-model:formData="formDataParam" />
+          </template>
+          <template v-if="edit === ParamsTypeMap.File">
+            <FileEdit v-model:file="fileParams" />
           </template>
         </div>
       </div>

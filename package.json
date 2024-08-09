@@ -17,14 +17,15 @@
     "@vueuse/core": "^10.11.0",
     "element-plus": "^2.7.6",
     "splitpanes": "^3.1.5",
-    "unocss-preset-scrollbar": "^0.3.1",
     "vue": "^3.4.29",
     "vue-codemirror": "^6.1.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.5",
     "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-terser": "^7.0.2",
     "unocss": "^0.61.0",
+    "unocss-preset-scrollbar": "^0.3.1",
     "unplugin-auto-import": "^0.17.6",
     "unplugin-vue-components": "^0.27.2",
     "vite": "^5.3.1"

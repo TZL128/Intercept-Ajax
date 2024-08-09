@@ -16,6 +16,7 @@ const interceptTask = ref({
 })
 const jsonParam = ref('{}')
 const formDataParam = ref([])
+const fileParams = ref([])
 const tabId = chrome.devtools.inspectedWindow.tabId
 
 const paramsText = computed(() => {
@@ -128,11 +129,17 @@ const handleResponseParams = (params, type) => {
   interceptTask.value.edit = type
   actionStatus.value = ActionStatusMap.res
   switch (type) {
-    case ParamsTypeMap.FormData:
-      formDataParam.value = [{
-        key: 'response',
-        type: 'file',
-        value: [{ name: `拦截的文件${params}`, fake: true }],
+    // case ParamsTypeMap.FormData:
+    //   formDataParam.value = [{
+    //     key: 'response',
+    //     type: 'file',
+    //     value: [{ name: `拦截的文件${params}`, fake: true }],
+    //   }]
+    //   break;
+    case ParamsTypeMap.File:
+      fileParams.value = [{
+        ...params,
+        fake: true,
       }]
       break;
     default:
@@ -151,6 +158,9 @@ const handleNext = useDebounceFn(async () => {
     case ParamsTypeMap.FormData:
       data.params = await formDataToJson()
       break;
+    case ParamsTypeMap.File:
+      data.params = await createFileObj(fileParams.value[0] ?? {})
+      break
     case ParamsTypeMap.Json:
       data.params = JSON.parse(jsonParam.value)
       break
@@ -166,29 +176,37 @@ const handleNext = useDebounceFn(async () => {
     actionStatus.value = ActionStatusMap.normal
     jsonParam.value = '{}'
     formDataParam.value = []
+    fileParams.value = []
   }
 }, 250)
+
+
+const createFileObj = async (data) => {
+  let result = ''
+  const { raw, name, fake } = data
+  if (fake) {
+    result = {
+      __file__: true,
+      fake
+    }
+  }
+  if (raw) {
+    result = {
+      __file__: true,
+      base64: await fileToBase64(raw),
+      name,
+    }
+  }
+  return result
+}
 
 
 const formDataToJson = async () => {
   const json = {}
   for (const item of formDataParam.value) {
     if (item.type === 'file') {
-      const [{ raw, name, fake } = {}] = item.value
-      json[item.key] = '' //当类型是file并且没有选择文件，value为空字符串.
-      if (fake) {
-        json[item.key] = {
-          __file__: true,
-          fake
-        }
-      }
-      if (raw) {
-        json[item.key] = {
-          __file__: true,
-          base64: await fileToBase64(raw),
-          name,
-        }
-      }
+      const [data = {}] = item.value
+      json[item.key] = await createFileObj(data)
     } else {
       json[item.key] = item.value
     }
@@ -201,9 +219,10 @@ const formDataToJson = async () => {
 provide(API_LIST, requestTaskList)
 provide(CURRENT_API, interceptTask)
 provide(JSON_PARAMS, jsonParam)
+provide(FORMDATA_PARAMS, formDataParam)
+provide(FILE_PARAMS, fileParams)
 provide(PARAMS_TEXT, paramsText)
 provide(INTERCEPT_ACTIVE, isIntercepting)
-provide(FORMDATA_PARAMS, formDataParam)
 provide(INTERCEPT_API, handleIntercept)
 provide(RELEASE_API, handleRelease)
 provide(RELEASE_ALL_API, handleReleaseAll)

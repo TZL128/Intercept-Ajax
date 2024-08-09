@@ -114,18 +114,24 @@ const interceptFunc = () => {
   //   });
   // };
 
-  const getFileExt = (xhr) => {
+  const getFileName = (xhr) => {
     const contentDisposition = xhr.getResponseHeader("Content-Disposition");
-    let ext = "";
+    let filename = "未知文件";
     if (contentDisposition && contentDisposition.includes("filename=")) {
-      const filename = contentDisposition
-        .split("filename=")[1]
-        .split(";")[0]
-        .trim();
-      // 解码 URL 编码的文件名
-      [, ext] = decodeURIComponent(filename).split(".");
+      const filenameRegex = /filename\*=([^']+)/;
+      const matches = filenameRegex.exec(contentDisposition);
+      if (matches && matches[1]) {
+        // 使用decodeURIComponent解码文件名
+        filename = decodeURIComponent(matches[1].replace("UTF-8''", ""));
+      } else {
+        // 处理没有使用UTF-8编码的情况
+        filename = contentDisposition
+          .split("filename=")[1]
+          .split(";")[0]
+          .trim();
+      }
     }
-    return ext;
+    return filename;
   };
 
   const jsonToFormData = (json, files) => {
@@ -247,15 +253,15 @@ const interceptFunc = () => {
        */
       HttpRequest.interceptorsResponse((data) => {
         switch (data.paramsType) {
-          case "FormData":
+          case "File":
             if (!data.params) {
               this.response = new Blob([]);
             }
             if (data.params.fake) {
               this.response = this.instance.files.pop();
             }
-            if (data.params.response.base64) {
-              this.response = baseToBlob(data.params.response.base64);
+            if (data.params.base64) {
+              this.response = baseToBlob(data.params.base64);
             }
             break;
           default:
@@ -268,8 +274,8 @@ const interceptFunc = () => {
       let messageType = "Json",
         message = "";
       if (["blob", "arraybuffer"].includes(super.responseType)) {
-        messageType = "FormData";
-        message = getFileExt(this); //await toBase64(super.response);
+        messageType = "File";
+        message = { name: getFileName(this) }; //await toBase64(super.response);
         this.instance.files = [super.response]; //挂在blob挂在身上
       } else {
         message = JSON.parse(super.responseText);
