@@ -329,7 +329,6 @@ const interceptFunc = () => {
 
   HttpRequest.interceptorsRequest = (task) => {
     const cb = (event) => {
-      window.removeEventListener("interceptors-request", cb);
       const { params, paramsType } = event.detail;
       const [method, url, async] = task.openParams;
       const isGet = method.toUpperCase() === "GET";
@@ -356,15 +355,14 @@ const interceptFunc = () => {
       }
       task.send(task.sendParams);
     };
-    window.addEventListener("interceptors-request", cb);
+    window.addEventListener("interceptors-request", cb, { once: true });
   };
 
   HttpRequest.interceptorsResponse = (callback = () => {}) => {
     const cb = (e) => {
-      window.removeEventListener("interceptors-response", cb);
       callback(e.detail);
     };
-    window.addEventListener("interceptors-response", cb);
+    window.addEventListener("interceptors-response", cb, { once: true });
   };
 
   window.OriginXMLHttpRequest = window.XMLHttpRequest;
@@ -400,7 +398,6 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.from !== "panel") {
     return;
   }
-
   switch (message.type) {
     case "switch":
       executeScript(

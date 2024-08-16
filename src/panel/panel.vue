@@ -60,23 +60,32 @@ onMounted(() => {
     "",
     "panel.html",
     function (panel) {
-      panel.onShown.addListener(() => {
+      let W
+      panel.onShown.addListener((window) => {
         sendMessage({ type: 'switch', data: true })
+        window.addEventListener('beforeunload', close)
+        W = window
       })
 
       panel.onHidden.addListener(() => {
-        sendMessage({ type: 'switch', data: false })
+        close()
+        W?.removeEventListener('beforeunload', close)
         chrome.runtime.onMessage.removeListener(receiveMessage);
       })
     }
   );
 })
 
+
+
 const removeRequestTaskById = (message) => {
   requestTaskList.value = requestTaskList.value.filter(task => task.id !== message.taskId)
 }
 
 const sendMessage = (message) => chrome.runtime.sendMessage({ ...message, tabId, from: 'panel' });
+
+
+const close = () => sendMessage({ type: 'switch', data: false })
 
 
 const handleRelease = (taskId) => {
