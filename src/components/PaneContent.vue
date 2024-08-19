@@ -35,7 +35,7 @@ const calcH = () => {
 <template>
   <div h-full scrollbar-y p-3.75>
     <template v-if="api?.id">
-      <div flex mb-5>
+      <div flex mb-5 class="animate__animated animate__bounceInLeft" >
         <div mr-2 text-white rounded font-semibold text-xs leading-none w-10 flex items-center justify-center
           :class="classStr">{{ api.method
           }}</div>
@@ -65,8 +65,8 @@ const calcH = () => {
     <template v-else>
       <TipText>
         <div>
-          <el-icon size="60" color="#9373EE">
-            <HomeFilled />
+          <el-icon size="60" color="#9373EE" class="animate__animated animate__pulse animate__infinite   drop-shadow-xl">
+            <HomeFilled  />
           </el-icon>
         </div>
       </TipText>
