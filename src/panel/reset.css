@@ -349,4 +349,6 @@ template {
 
 :root {
   --primary: #9373EE;
+  --animate-duration: 400ms;
+  /* --animate-delay: 0.9s; */
 }

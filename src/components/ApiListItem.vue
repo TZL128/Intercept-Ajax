@@ -21,7 +21,7 @@ const classStr = computed(() => ["GET"].includes((props.method || '').toLocaleUp
 const isIntercepting = inject(INTERCEPT_ACTIVE)
 const handleIntercept = inject(INTERCEPT_API)
 const handleRelease = inject(RELEASE_API)
-
+const keyWord = inject(KEY_WORD)
 
 const handleClick = () => {
   if (isIntercepting?.value) {
@@ -39,7 +39,7 @@ const handleClick = () => {
     'bg-#f2f4f7': isClick
   }" @click="handleClick" @mouseenter="!isIntercepting && (show = true)" @mouseleave="show = false">
     <span text-xs font-semibold mr-2.5 shrink-0 :class="classStr">{{ method }}</span>
-    <span text-sm text-normal flex-1 truncate>{{ url }}</span>
+    <Highlight :keyWord="keyWord" :content="url" text-sm text-normal flex-1 truncate />
     <span text-sm bg-get text-white rounded px-1 shadow v-show="show" @click.stop="handleRelease?.(props.id)">执行</span>
   </div>
 </template>

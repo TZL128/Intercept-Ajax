@@ -16,6 +16,7 @@ declare global {
   const INTERCEPT_ACTIVE: typeof import('./constant/index.js')['INTERCEPT_ACTIVE']
   const INTERCEPT_API: typeof import('./constant/index.js')['INTERCEPT_API']
   const JSON_PARAMS: typeof import('./constant/index.js')['JSON_PARAMS']
+  const KEY_WORD: typeof import('./constant/index.js')['KEY_WORD']
   const NEXT_STEP: typeof import('./constant/index.js')['NEXT_STEP']
   const PARAMS_TEXT: typeof import('./constant/index.js')['PARAMS_TEXT']
   const PARAMS_TYPE: typeof import('./constant/index.js')['PARAMS_TYPE']

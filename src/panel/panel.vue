@@ -4,8 +4,7 @@ import "splitpanes/dist/splitpanes.css";
 import { ParamsTypeMap, ActionStatusMap } from "@/constant/index";
 
 const actionStatus = ref(0);
-const requestTaskList = ref([
-]);
+const requestTaskList = ref([]);
 const interceptTask = ref({
   // id: 1,
   // method: 'post',
