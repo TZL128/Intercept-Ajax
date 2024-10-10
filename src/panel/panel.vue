@@ -46,8 +46,12 @@ onMounted(() => {
       case "response-params":
         handleResponseParams(message, messageType);
         break;
+      case "reset-panel":
+        handleResetPanel()
+        break;
     }
   };
+  //第一次切到面板 事件会出发两次？？
   chrome.runtime.onMessage.addListener(receiveMessage);
 
   chrome.devtools.panels.create(
@@ -158,6 +162,11 @@ const handleResponseParams = (params, type) => {
   }
 };
 
+const handleResetPanel = () => {
+  reset()
+  requestTaskList.value.length = 0
+}
+
 const handleNext = useDebounceFn(async () => {
   const typeMap = {
     [ActionStatusMap.req]: "request-params",
@@ -187,11 +196,7 @@ const handleNext = useDebounceFn(async () => {
     requestTaskList.value = requestTaskList.value.filter(
       (task) => task.id !== interceptTask.value.id
     );
-    interceptTask.value = {};
-    actionStatus.value = ActionStatusMap.normal;
-    jsonParam.value = "{}";
-    formDataParam.value = [];
-    fileParams.value = [];
+    reset()
   }
 }, 250);
 
@@ -226,6 +231,14 @@ const formDataToJson = async () => {
   }
   return json;
 };
+
+const reset = () => {
+  interceptTask.value = {};
+  actionStatus.value = ActionStatusMap.normal;
+  jsonParam.value = "{}";
+  formDataParam.value = [];
+  fileParams.value = [];
+}
 
 provide(API_LIST, requestTaskList);
 provide(CURRENT_API, interceptTask);

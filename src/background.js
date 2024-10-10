@@ -1,8 +1,9 @@
+
 const interceptFunc = () => {
   const requestTask = Symbol.for("requestTask");
   window[requestTask] = [];
 
-  window.intercepterDispatchTask = (taskId, release) => {
+  window.interceptDispatchTask = (taskId, release) => {
     if (!window[requestTask].length) return;
     let targetTask = null;
     window[requestTask] = window[requestTask].filter((task) => {
@@ -319,7 +320,7 @@ const interceptFunc = () => {
       });
     }
 
-    noticeContentScript(key, message, messageType = "Josn") {
+    noticeContentScript(key, message, messageType = "Json") {
       window.postMessage(
         { key, message, messageType, sender: "intercept-ajax" },
         "*"
@@ -358,48 +359,71 @@ const interceptFunc = () => {
     window.addEventListener("interceptors-request", cb, { once: true });
   };
 
-  HttpRequest.interceptorsResponse = (callback = () => {}) => {
+  HttpRequest.interceptorsResponse = (callback = () => { }) => {
     const cb = (e) => {
       callback(e.detail);
     };
     window.addEventListener("interceptors-response", cb, { once: true });
   };
 
-  window.OriginXMLHttpRequest = window.XMLHttpRequest;
+  window.originXMLHttpRequest = window.XMLHttpRequest;
   window.XMLHttpRequest = HttpRequest;
 };
 
 const originFunc = () => {
-  window[Symbol.for("requestTask")].forEach((task) =>
-    intercepterDispatchTask(task.id, true)
+  if (!window.originXMLHttpRequest) {
+    return
+  }
+  const list = window[Symbol.for("requestTask")] ?? []
+  list.forEach((task) =>
+    interceptDispatchTask(task.id, true)
   );
-  window[Symbol.for("requestTask")].length = 0;
-  window.XMLHttpRequest = window.OriginXMLHttpRequest;
-  delete window.OriginXMLHttpRequest;
+  list.length = 0;
+  window.XMLHttpRequest = window.originXMLHttpRequest;
+  delete window.originXMLHttpRequest;
 };
 
+
 const executeScript = (func, args, tabId) => {
-  chrome.scripting.executeScript({
-    target: { tabId },
-    world: "MAIN",
-    func,
-    args,
-  });
-};
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func,
+        args,
+      }, resolve);
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+
 
 const releaseAll = () => {
   window[Symbol.for("requestTask")].forEach((task) =>
-    intercepterDispatchTask(task.id, true)
+    interceptDispatchTask(task.id, true)
   );
   window[Symbol.for("requestTask")].length = 0;
 };
 
+const resetPanel = () => {
+  window.postMessage({
+    key: 'reset-panel',
+    sender: 'intercept-ajax'
+  }, '*')
+}
+
+
+let active = false;
 chrome.runtime.onMessage.addListener((message) => {
   if (message.from !== "panel") {
     return;
   }
   switch (message.type) {
     case "switch":
+      active = message.data;
       executeScript(
         message.data ? interceptFunc : originFunc,
         [],
@@ -408,7 +432,7 @@ chrome.runtime.onMessage.addListener((message) => {
       break;
     case "release-task":
       executeScript(
-        (taskId, release) => intercepterDispatchTask(taskId, release),
+        (taskId, release) => interceptDispatchTask(taskId, release),
         [message.data.taskId, true],
         message.tabId
       );
@@ -418,7 +442,7 @@ chrome.runtime.onMessage.addListener((message) => {
       break;
     case "intercept-task":
       executeScript(
-        (taskId, release) => intercepterDispatchTask(taskId, release),
+        (taskId, release) => interceptDispatchTask(taskId, release),
         [message.data.taskId, false],
         message.tabId
       );
@@ -447,5 +471,14 @@ chrome.runtime.onMessage.addListener((message) => {
         message.tabId
       );
       break;
+  }
+});
+
+//检测页面刷新完成
+chrome.webNavigation.onCompleted.addListener(async (detail) => {
+  if (active) {
+    await executeScript(originFunc, [], detail.tabId)
+    executeScript(interceptFunc, [], detail.tabId)
+    executeScript(resetPanel, [], detail.tabId)
   }
 });

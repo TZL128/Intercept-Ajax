@@ -20,5 +20,8 @@ window.addEventListener("message", (event) => {
         console.warn(error);
       }
       break;
+    case "reset-panel":
+      chrome.runtime.sendMessage({ key, from: "content" })
+      break;
   }
 });
