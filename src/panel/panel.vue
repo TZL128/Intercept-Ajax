@@ -29,8 +29,8 @@ const isIntercepting = computed(() => !!interceptTask.value.id);
 
 onMounted(() => {
   const receiveMessage = (data) => {
-    const { from, message, key, messageType } = data;
-    if (from !== "content") {
+    const { from, message, key, messageType, tabId: tId } = data;
+    if (tabId !== tId || from !== "content") {
       return;
     }
     switch (key) {

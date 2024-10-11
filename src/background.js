@@ -1,5 +1,5 @@
 
-const interceptFunc = () => {
+const interceptFunc = (tabId) => {
   const requestTask = Symbol.for("requestTask");
   window[requestTask] = [];
 
@@ -72,6 +72,7 @@ const interceptFunc = () => {
           message: params,
           messageType,
           sender: "intercept-ajax",
+          tabId
         },
         "*"
       );
@@ -322,7 +323,7 @@ const interceptFunc = () => {
 
     noticeContentScript(key, message, messageType = "Json") {
       window.postMessage(
-        { key, message, messageType, sender: "intercept-ajax" },
+        { key, message, messageType, sender: "intercept-ajax", tabId },
         "*"
       );
     }
@@ -408,43 +409,45 @@ const releaseAll = () => {
   window[Symbol.for("requestTask")].length = 0;
 };
 
-const resetPanel = () => {
+const resetPanel = (tabId) => {
   window.postMessage({
     key: 'reset-panel',
-    sender: 'intercept-ajax'
+    sender: 'intercept-ajax',
+    tabId
   }, '*')
 }
 
 
-let active = false;
+const TabActiveMap = new Map()
 chrome.runtime.onMessage.addListener((message) => {
   if (message.from !== "panel") {
     return;
   }
+  const tabId = message.tabId
   switch (message.type) {
     case "switch":
-      active = message.data;
+      TabActiveMap.set(tabId, message.data)
       executeScript(
         message.data ? interceptFunc : originFunc,
-        [],
-        message.tabId
+        [tabId],
+        tabId
       );
       break;
     case "release-task":
       executeScript(
         (taskId, release) => interceptDispatchTask(taskId, release),
         [message.data.taskId, true],
-        message.tabId
+        tabId
       );
       break;
     case "release-all":
-      executeScript(releaseAll, [], message.tabId);
+      executeScript(releaseAll, [], tabId);
       break;
     case "intercept-task":
       executeScript(
         (taskId, release) => interceptDispatchTask(taskId, release),
         [message.data.taskId, false],
-        message.tabId
+        tabId
       );
       break;
     case "request-params":
@@ -456,7 +459,7 @@ chrome.runtime.onMessage.addListener((message) => {
             })
           ),
         [message.data],
-        message.tabId
+        tabId
       );
       break;
     case "response-params":
@@ -468,7 +471,7 @@ chrome.runtime.onMessage.addListener((message) => {
             })
           ),
         [message.data],
-        message.tabId
+        tabId
       );
       break;
   }
@@ -476,9 +479,10 @@ chrome.runtime.onMessage.addListener((message) => {
 
 //检测页面刷新完成
 chrome.webNavigation.onCompleted.addListener(async (detail) => {
-  if (active) {
-    await executeScript(originFunc, [], detail.tabId)
-    executeScript(interceptFunc, [], detail.tabId)
-    executeScript(resetPanel, [], detail.tabId)
+  const tabId = detail.tabId
+  if (TabActiveMap.get(tabId)) {
+    await executeScript(originFunc, [], tabId)
+    executeScript(interceptFunc, [tabId], tabId)
+    executeScript(resetPanel, [tabId], tabId)
   }
 });

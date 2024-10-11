@@ -1,6 +1,5 @@
 window.addEventListener("message", (event) => {
-  //Only accept messages from the same frame
-  const { key, message, messageType, sender } = event.data;
+  const { key, message, messageType, sender, tabId } = event.data;
   if (sender !== "intercept-ajax") {
     return;
   }
@@ -15,13 +14,14 @@ window.addEventListener("message", (event) => {
           messageType,
           from: "content",
           key,
+          tabId,
         });
       } catch (error) {
         console.warn(error);
       }
       break;
     case "reset-panel":
-      chrome.runtime.sendMessage({ key, from: "content" })
+      chrome.runtime.sendMessage({ key, from: "content", tabId })
       break;
   }
 });
