@@ -1,4 +1,5 @@
 ### 安装  
+pnpm install
 pnpm run build 生成dist文件夹，打开chrome扩展管理，加载已解压的扩展程序
 
 ### 功能介绍
